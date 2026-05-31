@@ -6,6 +6,7 @@ from .base import BaseRestaurantAdapter
 
 RESTAURANT_CATEGORY_ID = "13065"
 MAX_RESULTS = 950
+FIELDS = "fsq_id,name,location,categories,tel,website,rating,price,hours,photos,stats"
 
 
 class FoursquareAdapter(BaseRestaurantAdapter):
@@ -29,6 +30,7 @@ class FoursquareAdapter(BaseRestaurantAdapter):
                 "radius": radius,
                 "limit": 50,
                 "categories": RESTAURANT_CATEGORY_ID,
+                "fields": FIELDS,
             }
             if cursor:
                 params["cursor"] = cursor
@@ -59,11 +61,37 @@ class FoursquareAdapter(BaseRestaurantAdapter):
 
         location = place.get("location", {})
         address = ", ".join(p for p in [
-            location.get("address", ""), location.get("locality", ""), location.get("region", "")
+            location.get("address", ""),
+            location.get("locality", ""),
+            location.get("region", ""),
         ] if p) or self.city_config["osm_name"]
+
         fsq_id = place.get("fsq_id", "")
         raw_rating = place.get("rating", 0.0)
-        neighborhood = location.get("neighborhood", [""])[0] if isinstance(location.get("neighborhood"), list) else location.get("neighborhood", "")
+        neighborhood = (
+            location.get("neighborhood", [""])[0]
+            if isinstance(location.get("neighborhood"), list)
+            else location.get("neighborhood", "")
+        )
+
+        # hours
+        hours_data = place.get("hours", {})
+        oh: dict = {}
+        if hours_data:
+            display = hours_data.get("display", "")
+            open_now = hours_data.get("open_now")
+            if display:
+                oh["raw"] = display
+            if open_now is not None:
+                oh["open_now"] = open_now
+
+        # photos
+        photos = []
+        for p in place.get("photos", [])[:3]:
+            prefix = p.get("prefix", "")
+            suffix = p.get("suffix", "")
+            if prefix and suffix:
+                photos.append(f"{prefix}400x300{suffix}")
 
         return RestaurantListing(
             name=name,
@@ -74,9 +102,12 @@ class FoursquareAdapter(BaseRestaurantAdapter):
             city=self.city_config["name"],
             neighborhood=neighborhood,
             cuisine=[cat["name"] for cat in place.get("categories", []) if cat.get("name")],
-            price_level=place.get("price", 0),
+            price_level=place.get("price", 0) or 0,
             rating=round(raw_rating / 2, 1) if raw_rating else 0.0,
+            review_count=place.get("stats", {}).get("total_ratings", 0) or 0,
             phone=place.get("tel", ""),
             website=place.get("website", ""),
             google_maps_url=f"https://foursquare.com/v/{fsq_id}" if fsq_id else "",
+            opening_hours=oh,
+            photos=photos,
         )
