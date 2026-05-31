@@ -1,0 +1,18 @@
+# Prague Restaurant Aggregator — Runtime Configuration
+
+adapters:
+  - openstreetmap
+  - foursquare
+  - google_places
+
+store:
+  path: docs/restaurants.json
+
+dashboard:
+  template: docs/_restaurants_template.html
+  output: docs/restaurants.html
+
+deduplication:
+  similarity_threshold: 0.85
+
+log_new_count: true
