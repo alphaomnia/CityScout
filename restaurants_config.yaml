@@ -1,4 +1,8 @@
-# Prague Restaurant Aggregator — Runtime Configuration
+# Prague & Brno Restaurant Aggregator — Runtime Configuration
+
+cities:
+  - prague
+  - brno
 
 adapters:
   - openstreetmap

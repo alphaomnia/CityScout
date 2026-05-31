@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from restaurants.config import OVERPASS_URL, PRAGUE_BBOX
+from restaurants.config import OVERPASS_URL
 from restaurants.models import RestaurantListing
 from .base import BaseRestaurantAdapter
 
@@ -37,7 +37,7 @@ class OpenStreetMapAdapter(BaseRestaurantAdapter):
             print(f"[{self.name}] Skipping in incremental mode")
             return []
 
-        bbox = PRAGUE_BBOX
+        bbox = self.city_config["bbox"]
         query = OVERPASS_QUERY.format(
             south=bbox["south"], west=bbox["west"],
             north=bbox["north"], east=bbox["east"],
@@ -46,14 +46,15 @@ class OpenStreetMapAdapter(BaseRestaurantAdapter):
         if not resp:
             return []
 
+        city_name = self.city_config["name"]
         listings = []
         for el in resp.json().get("elements", []):
-            listing = self._to_listing(el)
+            listing = self._to_listing(el, city_name)
             if listing:
                 listings.append(listing)
         return listings
 
-    def _to_listing(self, el: dict) -> RestaurantListing | None:
+    def _to_listing(self, el: dict, city_name: str) -> RestaurantListing | None:
         tags = el.get("tags", {})
         name = tags.get("name", "").strip()
         if not name:
@@ -61,7 +62,7 @@ class OpenStreetMapAdapter(BaseRestaurantAdapter):
 
         street = tags.get("addr:street", "")
         house_num = tags.get("addr:housenumber", "")
-        city = tags.get("addr:city", "Praha")
+        city = tags.get("addr:city", self.city_config["osm_name"])
         if street and house_num:
             address = f"{street} {house_num}, {city}"
         elif street:
@@ -75,6 +76,7 @@ class OpenStreetMapAdapter(BaseRestaurantAdapter):
             address=address,
             source="openstreetmap",
             source_id=f"{el['type']}/{el['id']}",
+            city=city_name,
             neighborhood=tags.get("addr:suburb", tags.get("addr:quarter", "")),
             cuisine=_parse_cuisine(tags.get("cuisine", "")),
             phone=tags.get("phone", tags.get("contact:phone", "")),

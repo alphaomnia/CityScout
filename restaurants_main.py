@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from restaurant_adapters import RESTAURANT_ADAPTERS
+from restaurants.config import CITIES
 from restaurants.dedup import deduplicate
 from restaurants.store import RestaurantStore
 
@@ -22,7 +23,7 @@ def load_config() -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Prague Restaurant Aggregator")
+    parser = argparse.ArgumentParser(description="Restaurant Aggregator")
     parser.add_argument("--initial-scan", action="store_true")
     args = parser.parse_args()
     mode = "bulk" if args.initial_scan else "incremental"
@@ -42,13 +43,19 @@ def main() -> int:
     }
 
     incoming: list = []
-    for adapter_name in config.get("adapters", []):
-        cls = RESTAURANT_ADAPTERS.get(adapter_name)
-        if cls is None:
-            print(f"[main] Unknown adapter: {adapter_name!r}, skipping")
+    for city_key in config.get("cities", ["prague"]):
+        city_cfg = CITIES.get(city_key)
+        if city_cfg is None:
+            print(f"[main] Unknown city: {city_key!r}, skipping")
             continue
-        adapter = cls(api_key=api_keys.get(adapter_name, ""), mode=mode)
-        incoming.extend(adapter._safe_fetch())
+        print(f"--- City: {city_cfg['name']} ---")
+        for adapter_name in config.get("adapters", []):
+            cls = RESTAURANT_ADAPTERS.get(adapter_name)
+            if cls is None:
+                print(f"[main] Unknown adapter: {adapter_name!r}, skipping")
+                continue
+            adapter = cls(api_key=api_keys.get(adapter_name, ""), mode=mode, city_config=city_cfg)
+            incoming.extend(adapter._safe_fetch())
 
     print(f"Fetched {len(incoming)} raw listings across all sources")
     deduplicated = deduplicate(incoming)

@@ -3,7 +3,6 @@ from __future__ import annotations
 from restaurants.config import (
     GOOGLE_DETAIL_FIELDS_ATMOSPHERE, GOOGLE_DETAIL_FIELDS_BASIC,
     GOOGLE_DETAIL_FIELDS_CONTACT, GOOGLE_PLACES_BASE,
-    PRAGUE_CENTER, PRAGUE_DISTRICTS, NEIGHBORHOODS,
 )
 from restaurants.models import RestaurantListing
 from .base import BaseRestaurantAdapter
@@ -33,13 +32,18 @@ class GooglePlacesAdapter(BaseRestaurantAdapter):
         return self._bulk_scan() if self.mode == "bulk" else self._incremental()
 
     def _bulk_scan(self) -> list[RestaurantListing]:
-        queries = [f"restaurants in {d}" for d in PRAGUE_DISTRICTS]
-        queries += [f"restaurants in {n}, Prague" for n in NEIGHBORHOODS]
+        city_name = self.city_config["name"]
+        districts = self.city_config["districts"]
+        neighborhoods = self.city_config["neighborhoods"]
+        queries = [f"restaurants in {d}" for d in districts]
+        queries += [f"restaurants in {n}, {city_name}" for n in neighborhoods]
         return self._run_text_searches(queries)
 
     def _incremental(self) -> list[RestaurantListing]:
+        city_name = self.city_config["name"]
+        districts = self.city_config["districts"]
         nearby = self._nearby_search()
-        text = self._run_text_searches(["restaurants in Prague 1", "restaurants in Prague 2"])
+        text = self._run_text_searches([f"restaurants in {districts[0]}", f"restaurants in {districts[1]}"])
         seen_ids: set[str] = set()
         results: list[RestaurantListing] = []
         for listing in nearby + text:
@@ -84,8 +88,10 @@ class GooglePlacesAdapter(BaseRestaurantAdapter):
 
     def _nearby_search(self) -> list[dict]:
         url = f"{GOOGLE_PLACES_BASE}/nearbysearch/json"
+        center = self.city_config["center"]
+        radius = self.city_config["radius_m"]
         places: list[dict] = []
-        params = {"location": f"{PRAGUE_CENTER[0]},{PRAGUE_CENTER[1]}", "radius": 15000, "type": "restaurant", "rankby": "prominence", "key": self.api_key}
+        params = {"location": f"{center[0]},{center[1]}", "radius": radius, "type": "restaurant", "rankby": "prominence", "key": self.api_key}
         for _ in range(3):
             resp = self._get(url, params=params)
             if not resp:
@@ -124,6 +130,7 @@ class GooglePlacesAdapter(BaseRestaurantAdapter):
             address=src.get("formatted_address", place.get("formatted_address", "")),
             source="google_places",
             source_id=place_id,
+            city=self.city_config["name"],
             neighborhood=_extract_neighborhood(src.get("address_components", [])),
             cuisine=_types_to_cuisine(src.get("types", [])),
             price_level=int(src.get("price_level", 0) or 0),

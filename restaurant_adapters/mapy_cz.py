@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from restaurants.config import PRAGUE_CENTER, PRAGUE_SEARCH_RADIUS_M
 from restaurants.models import RestaurantListing
 from .base import BaseRestaurantAdapter
 
 MAPY_CZ_BASE = "https://api.mapy.cz/v1"
 MAX_RESULTS = 500
-PAGE_SIZE = 15  # Mapy.cz max per request
+PAGE_SIZE = 15
 
 
 class MapyCzAdapter(BaseRestaurantAdapter):
@@ -17,15 +16,18 @@ class MapyCzAdapter(BaseRestaurantAdapter):
             print(f"[{self.name}] No API key, skipping")
             return []
 
+        center = self.city_config["center"]
+        radius = self.city_config["radius_m"]
+        city_name = self.city_config["name"]
         results: list[RestaurantListing] = []
         offset = 0
 
         while len(results) < MAX_RESULTS:
             params = {
                 "query": "restaurant",
-                "lat": PRAGUE_CENTER[0],
-                "lon": PRAGUE_CENTER[1],
-                "radius": PRAGUE_SEARCH_RADIUS_M,
+                "lat": center[0],
+                "lon": center[1],
+                "radius": radius,
                 "limit": PAGE_SIZE,
                 "offset": offset,
                 "lang": "en",
@@ -41,7 +43,7 @@ class MapyCzAdapter(BaseRestaurantAdapter):
                 break
 
             for item in items:
-                listing = self._to_listing(item)
+                listing = self._to_listing(item, city_name)
                 if listing:
                     results.append(listing)
 
@@ -52,7 +54,7 @@ class MapyCzAdapter(BaseRestaurantAdapter):
 
         return results
 
-    def _to_listing(self, item: dict) -> RestaurantListing | None:
+    def _to_listing(self, item: dict, city_name: str) -> RestaurantListing | None:
         name = item.get("name", "").strip()
         if not name:
             return None
@@ -62,11 +64,10 @@ class MapyCzAdapter(BaseRestaurantAdapter):
             location.get("streetAddress", ""),
             location.get("municipalityName", ""),
         ]
-        address = ", ".join(p for p in parts if p) or "Praha"
+        address = ", ".join(p for p in parts if p) or self.city_config["osm_name"]
 
         mapy_id = str(item.get("id", ""))
         url = f"https://mapy.cz/zakladni?source=firm&id={mapy_id}" if mapy_id else ""
-
         contact = item.get("contact", {})
         cats = [c.get("name", "") for c in item.get("categories", []) if c.get("name")]
 
@@ -75,6 +76,7 @@ class MapyCzAdapter(BaseRestaurantAdapter):
             address=address,
             source="mapy_cz",
             source_id=mapy_id,
+            city=city_name,
             neighborhood=location.get("quarterName", location.get("districtName", "")),
             cuisine=cats,
             phone=contact.get("phone", ""),

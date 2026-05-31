@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from restaurants.config import FOURSQUARE_BASE, PRAGUE_CENTER
+from restaurants.config import FOURSQUARE_BASE
 from restaurants.models import RestaurantListing
 from .base import BaseRestaurantAdapter
 
@@ -16,6 +16,9 @@ class FoursquareAdapter(BaseRestaurantAdapter):
             print(f"[{self.name}] No API key, skipping")
             return []
 
+        center = self.city_config["center"]
+        radius = self.city_config["radius_m"]
+        city_name = self.city_config["name"]
         results: list[RestaurantListing] = []
         cursor: str | None = None
         headers = {"Authorization": self.api_key, "Accept": "application/json"}
@@ -23,8 +26,8 @@ class FoursquareAdapter(BaseRestaurantAdapter):
         while len(results) < MAX_RESULTS:
             params: dict = {
                 "query": "restaurant",
-                "ll": f"{PRAGUE_CENTER[0]},{PRAGUE_CENTER[1]}",
-                "radius": 15000,
+                "ll": f"{center[0]},{center[1]}",
+                "radius": radius,
                 "limit": 50,
                 "categories": RESTAURANT_CATEGORY_ID,
             }
@@ -37,7 +40,7 @@ class FoursquareAdapter(BaseRestaurantAdapter):
 
             data = resp.json()
             for place in data.get("results", []):
-                listing = self._to_listing(place)
+                listing = self._to_listing(place, city_name)
                 if listing:
                     results.append(listing)
 
@@ -50,16 +53,15 @@ class FoursquareAdapter(BaseRestaurantAdapter):
             print(f"[{self.name}] Hit {MAX_RESULTS} result cap (free tier limit)")
         return results
 
-    def _to_listing(self, place: dict) -> RestaurantListing | None:
+    def _to_listing(self, place: dict, city_name: str) -> RestaurantListing | None:
         name = place.get("name", "").strip()
         if not name:
             return None
 
         location = place.get("location", {})
-        address = ", ".join(p for p in [location.get("address", ""), location.get("locality", ""), location.get("region", "")] if p) or "Praha"
+        address = ", ".join(p for p in [location.get("address", ""), location.get("locality", ""), location.get("region", "")] if p) or self.city_config["osm_name"]
         fsq_id = place.get("fsq_id", "")
         raw_rating = place.get("rating", 0.0)
-
         neighborhood = location.get("neighborhood", [""])[0] if isinstance(location.get("neighborhood"), list) else location.get("neighborhood", "")
 
         return RestaurantListing(
@@ -67,6 +69,7 @@ class FoursquareAdapter(BaseRestaurantAdapter):
             address=address,
             source="foursquare",
             source_id=fsq_id,
+            city=city_name,
             neighborhood=neighborhood,
             cuisine=[cat["name"] for cat in place.get("categories", []) if cat.get("name")],
             price_level=place.get("price", 0),

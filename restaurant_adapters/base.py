@@ -5,18 +5,20 @@ from abc import ABC, abstractmethod
 
 import requests
 
+from restaurants.config import CITIES
 from restaurants.models import RestaurantListing
 
-USER_AGENT = "cityscout/1.0 (Prague restaurant discovery; github.com/alphaomnia/CityScout)"
+USER_AGENT = "cityscout/1.0 (Czech restaurant discovery; github.com/alphaomnia/CityScout)"
 
 
 class BaseRestaurantAdapter(ABC):
     name: str = ""
     timeout: int = 30
 
-    def __init__(self, api_key: str = "", mode: str = "incremental") -> None:
+    def __init__(self, api_key: str = "", mode: str = "incremental", city_config: dict | None = None) -> None:
         self.api_key = api_key
         self.mode = mode
+        self.city_config = city_config or CITIES["prague"]
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": USER_AGENT})
 
@@ -44,12 +46,13 @@ class BaseRestaurantAdapter(ABC):
             return None
 
     def _safe_fetch(self) -> list[RestaurantListing]:
+        city_name = self.city_config.get("name", "?")
         try:
             results = self.fetch()
-            print(f"[{self.name}] Fetched {len(results)} listings (mode={self.mode})")
+            print(f"[{self.name}/{city_name}] Fetched {len(results)} listings (mode={self.mode})")
             return results
         except Exception as exc:
-            print(f"[{self.name}] Adapter error: {exc}")
+            print(f"[{self.name}/{city_name}] Adapter error: {exc}")
             return []
 
     def _sleep(self, seconds: float) -> None:

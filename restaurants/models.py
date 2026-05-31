@@ -15,6 +15,7 @@ class RestaurantListing:
     address: str
     source: str
     source_id: str = ""
+    city: str = ""
     neighborhood: str = ""
     cuisine: list[str] = field(default_factory=list)
     price_level: int = 0
