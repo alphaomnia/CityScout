@@ -3,71 +3,41 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Czech Restaurants · Daily Edition</title>
+  <title>CityScout · Restaurants</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --paper: #faf8f3;
-      --ink: #1a1a1a;
-      --ink-mid: #4a4a48;
-      --ink-faint: #8a8884;
-      --rule: #d4cfc2;
-      --accent: #a83232;
-      --accent-soft: #f3e8e6;
-      --gold: #b8862a;
-      --sage: #3a6b4a;
+      --paper: #faf8f3; --ink: #1a1a1a; --ink-mid: #4a4a48; --ink-faint: #8a8884;
+      --rule: #d4cfc2; --accent: #a83232; --accent-soft: #f3e8e6;
+      --gold: #b8862a; --sage: #3a6b4a;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { background: var(--paper); color: var(--ink); font-family: 'Fraunces', Georgia, serif; line-height: 1.5; min-height: 100vh; }
     body::before { content: ""; position: fixed; inset: 0; background-image: radial-gradient(rgba(0,0,0,0.015) 1px, transparent 1px); background-size: 3px 3px; pointer-events: none; z-index: 0; }
 
-    /* sync bar */
-    .sync-bar {
-      font-family: 'Inter', sans-serif; font-size: 12px;
-      background: white; border-bottom: 1px solid var(--rule);
-      padding: 8px 40px; display: flex; align-items: center; gap: 12px;
-      position: relative; z-index: 10;
-    }
+    .sync-bar { font-family: 'Inter', sans-serif; font-size: 12px; background: white; border-bottom: 1px solid var(--rule); padding: 8px 40px; display: flex; align-items: center; gap: 12px; position: relative; z-index: 10; }
     .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); flex-shrink: 0; }
     .sync-dot.connected { background: var(--sage); }
     .sync-dot.syncing { background: var(--gold); animation: pulse 1s infinite; }
     .sync-dot.error { background: var(--accent); }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
     .sync-status { color: var(--ink-mid); }
-    .sync-btn {
-      font-family: 'Inter', sans-serif; font-size: 11px; padding: 3px 10px;
-      border: 1px solid var(--rule); border-radius: 3px; cursor: pointer;
-      background: transparent; color: var(--ink-mid); margin-left: 4px;
-    }
+    .sync-btn { font-family: 'Inter', sans-serif; font-size: 11px; padding: 3px 10px; border: 1px solid var(--rule); border-radius: 3px; cursor: pointer; background: transparent; color: var(--ink-mid); margin-left: 4px; }
     .sync-btn:hover { border-color: var(--ink-mid); color: var(--ink); }
     .sync-btn.danger { border-color: var(--accent); color: var(--accent); }
     .sync-btn.danger:hover { background: var(--accent-soft); }
 
-    /* sync panel */
-    .sync-panel {
-      display: none; position: relative; z-index: 9;
-      background: #fffdf8; border-bottom: 1px solid var(--rule);
-      padding: 20px 40px; font-family: 'Inter', sans-serif;
-    }
+    .sync-panel { display: none; position: relative; z-index: 9; background: #fffdf8; border-bottom: 1px solid var(--rule); padding: 20px 40px; font-family: 'Inter', sans-serif; }
     .sync-panel.open { display: block; }
-    .sync-panel h3 { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+    .sync-panel h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
     .sync-panel p { font-size: 12px; color: var(--ink-mid); margin-bottom: 12px; line-height: 1.6; }
     .sync-panel a { color: var(--gold); }
     .sync-field { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .sync-field input {
-      font-family: 'Inter', sans-serif; font-size: 13px;
-      border: 1px solid var(--rule); border-radius: 4px;
-      padding: 7px 12px; background: white; color: var(--ink);
-      width: 380px; max-width: 100%;
-    }
+    .sync-field input { font-family: 'Inter', sans-serif; font-size: 13px; border: 1px solid var(--rule); border-radius: 4px; padding: 7px 12px; background: white; color: var(--ink); width: 380px; max-width: 100%; }
     .sync-field input:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
-    .btn-primary {
-      font-family: 'Inter', sans-serif; font-size: 12px; padding: 7px 16px;
-      border: none; border-radius: 4px; cursor: pointer;
-      background: var(--ink); color: white;
-    }
+    .btn-primary { font-family: 'Inter', sans-serif; font-size: 12px; padding: 7px 16px; border: none; border-radius: 4px; cursor: pointer; background: var(--ink); color: white; }
     .btn-primary:hover { background: #333; }
     .btn-primary:disabled { opacity: .5; cursor: default; }
     .sync-error-msg { font-size: 12px; color: var(--accent); margin-top: 8px; }
@@ -79,6 +49,7 @@
     .masthead-title { text-align: center; }
     .masthead-title h1 { font-size: clamp(28px, 5vw, 52px); font-weight: 900; line-height: 1.05; letter-spacing: -0.02em; }
     .masthead-title .subtitle { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--ink-mid); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; }
+
     .filter-bar { background: white; border: 1px solid var(--rule); border-radius: 8px; padding: 16px 20px; margin: 20px 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
     .filter-group { display: flex; flex-direction: column; gap: 4px; }
     .filter-group label { font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
@@ -91,9 +62,10 @@
     .filter-actions { margin-left: auto; display: flex; gap: 8px; align-items: flex-end; }
     .btn-reset { font-family: 'Inter', sans-serif; font-size: 12px; padding: 6px 14px; border: 1px solid var(--rule); border-radius: 4px; cursor: pointer; background: transparent; color: var(--ink-mid); }
     .btn-reset:hover { border-color: var(--ink-mid); color: var(--ink); }
+
     .stats-bar { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--ink-faint); padding: 8px 0 16px; border-bottom: 1px solid var(--rule); margin-bottom: 20px; display: flex; gap: 20px; }
     .stats-bar strong { color: var(--ink-mid); }
-    .cards { display: flex; flex-direction: column; gap: 0; }
+    .cards { display: flex; flex-direction: column; }
     .card { display: grid; grid-template-columns: 48px 1fr auto; gap: 0 20px; padding: 18px 0; border-bottom: 1px solid var(--rule); align-items: start; }
     .card:last-child { border-bottom: none; }
     .card-num { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--ink-faint); padding-top: 3px; text-align: right; }
@@ -106,6 +78,7 @@
     .tag.neighborhood { background: #eef4f0; color: var(--sage); }
     .tag.source { background: #f0f0f0; color: var(--ink-mid); }
     .tag.city { background: #eef0f8; color: #3a4a8a; }
+    .tag.country { background: #f5f0ff; color: #6a4a9a; }
     .price-dots { font-size: 12px; color: var(--gold); letter-spacing: 1px; }
     .card-hours { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
     .card-actions { display: flex; gap: 6px; margin-top: 8px; }
@@ -137,23 +110,16 @@
 </head>
 <body>
 
-<!-- sync bar -->
 <div class="sync-bar">
   <div class="sync-dot" id="syncDot"></div>
   <span class="sync-status" id="syncStatus">Sync off</span>
   <button class="sync-btn" id="btnSyncToggle">Enable sync</button>
   <button class="sync-btn danger" id="btnDisconnect" style="display:none">Disconnect</button>
 </div>
-
-<!-- sync setup panel -->
 <div class="sync-panel" id="syncPanel">
   <h3>Sync with GitHub Gist</h3>
-  <p>
-    Your "Want to visit", "Visited" and "Dismissed" states will be saved to a private Gist in your GitHub account,
-    so every device stays in sync.<br>
-    Create a token at <a href="https://github.com/settings/tokens/new?scopes=gist&description=CityScout+Sync" target="_blank" rel="noopener">github.com/settings/tokens/new</a>
-    — tick only the <strong>gist</strong> scope.
-  </p>
+  <p>Your states are saved to a private Gist so every device stays in sync.<br>
+  Create a token at <a href="https://github.com/settings/tokens/new?scopes=gist&description=CityScout+Sync" target="_blank" rel="noopener">github.com/settings/tokens/new</a> — tick only the <strong>gist</strong> scope.</p>
   <div class="sync-field">
     <input type="password" id="tokenInput" placeholder="Paste your GitHub token (ghp_…)" autocomplete="off" />
     <button class="btn-primary" id="btnConnect">Connect</button>
@@ -163,7 +129,7 @@
 
 <div class="page">
   <div class="masthead">
-    <div class="left">Czech Republic · Restaurants</div>
+    <div class="left" id="mastheadLeft">Restaurants</div>
     <div class="masthead-title">
       <h1>CityScout Eats</h1>
       <div class="subtitle">Restaurant Discovery · Updated Daily</div>
@@ -173,12 +139,12 @@
 
   <div class="filter-bar">
     <div class="filter-group">
+      <label>Country</label>
+      <div class="pill-row" id="countryFilter"><button class="pill active" data-val="">All</button></div>
+    </div>
+    <div class="filter-group">
       <label>City</label>
-      <div class="pill-row" id="cityFilter">
-        <button class="pill active" data-val="">All cities</button>
-        <button class="pill" data-val="Prague">Prague</button>
-        <button class="pill" data-val="Brno">Brno</button>
-      </div>
+      <div class="pill-row" id="cityFilter"><button class="pill active" data-val="">All</button></div>
     </div>
     <div class="filter-group">
       <label>Search</label>
@@ -211,7 +177,7 @@
       <div class="pill-row" id="statusFilter">
         <button class="pill active" data-val="">All</button>
         <button class="pill" data-val="new">New</button>
-        <button class="pill" data-val="want_to_visit">★ Want to visit</button>
+        <button class="pill" data-val="want_to_visit">★ Want</button>
         <button class="pill" data-val="visited">✓ Visited</button>
         <button class="pill" data-val="hide_dismissed">Hide dismissed</button>
       </div>
@@ -235,9 +201,7 @@
         <option value="mapy_cz">Mapy.cz</option>
       </select>
     </div>
-    <div class="filter-actions">
-      <button class="btn-reset" id="btnReset">Reset filters</button>
-    </div>
+    <div class="filter-actions"><button class="btn-reset" id="btnReset">Reset</button></div>
   </div>
 
   <div class="stats-bar" id="statsBar">Loading…</div>
@@ -251,130 +215,74 @@ const LS_TOKEN = 'cityscout_gh_token';
 const LS_GIST = 'cityscout_gist_id';
 const GIST_FILENAME = 'cityscout-restaurant-states.json';
 
-let allRestaurants = [];
-let userStates = {};
-let generatedAt = '';
-let ghToken = '';
-let gistId = '';
-let saveTimer = null;
+let allRestaurants = [], userStates = {}, generatedAt = '';
+let ghToken = '', gistId = '', saveTimer = null;
 
-// ── localStorage helpers ──────────────────────────────────────────────────────
 function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } }
 function lsSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
-
-function loadLocalStates() {
-  try { userStates = JSON.parse(lsGet(LS_KEY) || '{}'); } catch { userStates = {}; }
-}
+function loadLocalStates() { try { userStates = JSON.parse(lsGet(LS_KEY) || '{}'); } catch { userStates = {}; } }
 function saveLocalStates() { lsSet(LS_KEY, JSON.stringify(userStates)); }
 
-// ── sync UI helpers ───────────────────────────────────────────────────────────
 function setSyncUI(state, msg) {
-  const dot = document.getElementById('syncDot');
-  const status = document.getElementById('syncStatus');
-  const toggleBtn = document.getElementById('btnSyncToggle');
-  const disconnectBtn = document.getElementById('btnDisconnect');
-  dot.className = 'sync-dot' + (state ? ' ' + state : '');
-  status.textContent = msg;
-  if (state === 'connected') {
-    toggleBtn.style.display = 'none';
-    disconnectBtn.style.display = '';
-  } else if (state === 'syncing') {
-    toggleBtn.style.display = 'none';
-    disconnectBtn.style.display = '';
-  } else {
-    toggleBtn.style.display = '';
-    disconnectBtn.style.display = 'none';
-  }
+  document.getElementById('syncDot').className = 'sync-dot' + (state ? ' ' + state : '');
+  document.getElementById('syncStatus').textContent = msg;
+  const connected = state === 'connected' || state === 'syncing';
+  document.getElementById('btnSyncToggle').style.display = connected ? 'none' : '';
+  document.getElementById('btnDisconnect').style.display = connected ? '' : 'none';
 }
 
-// ── GitHub Gist API ───────────────────────────────────────────────────────────
 async function gistRequest(method, path, body) {
   const resp = await fetch('https://api.github.com' + path, {
     method,
-    headers: {
-      'Authorization': 'token ' + ghToken,
-      'Accept': 'application/vnd.github+json',
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': 'token ' + ghToken, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!resp.ok) throw new Error(`GitHub API ${resp.status}: ${await resp.text()}`);
   return resp.json();
 }
-
 async function findOrCreateGist() {
-  // look for existing gist by filename
   const gists = await gistRequest('GET', '/gists?per_page=100');
-  const existing = gists.find(g => g.files && g.files[GIST_FILENAME]);
+  const existing = gists.find(g => g.files?.[GIST_FILENAME]);
   if (existing) return existing.id;
-
-  // create new private gist
-  const created = await gistRequest('POST', '/gists', {
-    description: 'CityScout restaurant states',
-    public: false,
-    files: { [GIST_FILENAME]: { content: JSON.stringify({}) } },
-  });
+  const created = await gistRequest('POST', '/gists', { description: 'CityScout restaurant states', public: false, files: { [GIST_FILENAME]: { content: '{}' } } });
   return created.id;
 }
-
 async function loadFromGist() {
   const data = await gistRequest('GET', '/gists/' + gistId);
   const content = data.files?.[GIST_FILENAME]?.content;
-  if (content) {
-    const remote = JSON.parse(content);
-    // merge: remote wins over local for any key present remotely
-    userStates = Object.assign({}, userStates, remote);
-    saveLocalStates();
-  }
+  if (content) { userStates = Object.assign({}, userStates, JSON.parse(content)); saveLocalStates(); }
 }
-
 async function saveToGist() {
-  await gistRequest('PATCH', '/gists/' + gistId, {
-    files: { [GIST_FILENAME]: { content: JSON.stringify(userStates) } },
-  });
+  await gistRequest('PATCH', '/gists/' + gistId, { files: { [GIST_FILENAME]: { content: JSON.stringify(userStates) } } });
 }
-
-// ── connect flow ──────────────────────────────────────────────────────────────
 async function connect(token) {
   const errEl = document.getElementById('syncErrorMsg');
   const btn = document.getElementById('btnConnect');
-  errEl.textContent = '';
-  btn.disabled = true;
-  btn.textContent = 'Connecting…';
+  errEl.textContent = ''; btn.disabled = true; btn.textContent = 'Connecting…';
   setSyncUI('syncing', 'Connecting…');
   try {
-    ghToken = token;
-    gistId = await findOrCreateGist();
+    ghToken = token; gistId = await findOrCreateGist();
     await loadFromGist();
-    lsSet(LS_TOKEN, token);
-    lsSet(LS_GIST, gistId);
+    lsSet(LS_TOKEN, token); lsSet(LS_GIST, gistId);
     document.getElementById('syncPanel').classList.remove('open');
     document.getElementById('btnSyncToggle').textContent = 'Enable sync';
     setSyncUI('connected', 'Synced');
     renderCards(filteredRestaurants());
   } catch(e) {
-    ghToken = '';
-    gistId = '';
+    ghToken = ''; gistId = '';
     errEl.textContent = 'Error: ' + e.message;
     setSyncUI('error', 'Sync error');
-    btn.disabled = false;
-    btn.textContent = 'Connect';
+    btn.disabled = false; btn.textContent = 'Connect';
   }
 }
-
 function disconnect() {
-  ghToken = '';
-  gistId = '';
-  lsSet(LS_TOKEN, '');
-  lsSet(LS_GIST, '');
+  ghToken = ''; gistId = '';
+  lsSet(LS_TOKEN, ''); lsSet(LS_GIST, '');
   setSyncUI('', 'Sync off');
-  document.getElementById('btnSyncToggle').textContent = 'Enable sync';
 }
 
-// ── state changes ─────────────────────────────────────────────────────────────
 function setUserStatus(id, status) {
-  userStates[id] = status;
-  saveLocalStates();
+  userStates[id] = status; saveLocalStates();
   if (ghToken && gistId) {
     clearTimeout(saveTimer);
     setSyncUI('syncing', 'Saving…');
@@ -386,42 +294,65 @@ function setUserStatus(id, status) {
   }
   renderCards(filteredRestaurants());
 }
-
 function getUserStatus(id) { return userStates[id] || 'new'; }
 
-// ── rendering helpers ─────────────────────────────────────────────────────────
-function priceDisplay(level) {
-  if (!level) return '';
-  return '<span class="price-dots">' + '€'.repeat(level) + '<span style="color:var(--rule)">' + '€'.repeat(4 - level) + '</span></span>';
+// ── dynamic filters ───────────────────────────────────────────────────────────
+function buildPillFilter(containerId, values, onSelect) {
+  const container = document.getElementById(containerId);
+  // keep the "All" pill, remove any previously added
+  [...container.querySelectorAll('.pill:not([data-val=""])')].forEach(el => el.remove());
+  for (const val of [...values].sort()) {
+    const btn = document.createElement('button');
+    btn.className = 'pill'; btn.dataset.val = val; btn.textContent = val;
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (onSelect) onSelect(val);
+      onFilterChange();
+    });
+    container.appendChild(btn);
+  }
+  container.querySelector('.pill[data-val=""]').addEventListener('click', () => {
+    container.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+    container.querySelector('.pill[data-val=""]').classList.add('active');
+    if (onSelect) onSelect('');
+    onFilterChange();
+  });
 }
-function sourceBadge(source) {
-  const labels = { google_places: 'Google Maps', openstreetmap: 'OpenStreetMap', foursquare: 'Foursquare', mapy_cz: 'Mapy.cz' };
-  return `<span class="source-dot ${source}"></span>${labels[source] || source}`;
-}
-function isNew(firstSeen) {
-  if (!firstSeen) return false;
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 14);
-  return new Date(firstSeen) >= cutoff;
-}
-function formatDate(iso) {
-  if (!iso) return '';
-  try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return iso; }
+
+function rebuildCityPills(selectedCountry) {
+  const cities = new Set();
+  for (const r of allRestaurants) {
+    if (!selectedCountry || r.country === selectedCountry) {
+      if (r.city) cities.add(r.city);
+    }
+  }
+  buildPillFilter('cityFilter', cities, null);
+  // reset city selection
+  document.querySelectorAll('#cityFilter .pill').forEach((b,i) => b.classList.toggle('active', i===0));
 }
 
 function populateFilters(restaurants) {
-  const cuisines = new Set(), neighborhoods = new Set();
+  const countries = new Set(), cuisines = new Set(), neighborhoods = new Set();
   for (const r of restaurants) {
-    for (const c of (r.cuisine || [])) if (c) cuisines.add(c);
+    if (r.country) countries.add(r.country);
+    for (const c of (r.cuisine||[])) if (c) cuisines.add(c);
     if (r.neighborhood) neighborhoods.add(r.neighborhood);
   }
+  buildPillFilter('countryFilter', countries, rebuildCityPills);
+  rebuildCityPills('');
   const cSelect = document.getElementById('filterCuisine');
-  [...cuisines].sort().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; cSelect.appendChild(o); });
+  [...cuisines].sort().forEach(c => { const o = document.createElement('option'); o.value=c; o.textContent=c; cSelect.appendChild(o); });
   const nSelect = document.getElementById('filterNeighborhood');
-  [...neighborhoods].sort().forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; nSelect.appendChild(o); });
+  [...neighborhoods].sort().forEach(n => { const o = document.createElement('option'); o.value=n; o.textContent=n; nSelect.appendChild(o); });
+  // update masthead
+  const countryList = [...countries].sort().join(' · ');
+  document.getElementById('mastheadLeft').textContent = countryList || 'Restaurants';
 }
 
 function getFilters() {
   return {
+    country: document.querySelector('#countryFilter .pill.active')?.dataset.val || '',
     city: document.querySelector('#cityFilter .pill.active')?.dataset.val || '',
     search: document.getElementById('filterSearch').value.toLowerCase().trim(),
     cuisine: document.getElementById('filterCuisine').value,
@@ -438,55 +369,67 @@ function filteredRestaurants() {
   const f = getFilters();
   return allRestaurants.filter(r => {
     const status = getUserStatus(r.id);
+    if (f.country && r.country !== f.country) return false;
     if (f.city && r.city !== f.city) return false;
     if (f.status === 'hide_dismissed' && status === 'dismissed') return false;
     if (f.status && f.status !== 'hide_dismissed' && status !== f.status) return false;
     if (f.source && r.source !== f.source) return false;
     if (f.price && String(r.price_level) !== f.price) return false;
     if (f.minRating && r.rating < f.minRating) return false;
-    if (f.cuisine && !(r.cuisine || []).includes(f.cuisine)) return false;
+    if (f.cuisine && !(r.cuisine||[]).includes(f.cuisine)) return false;
     if (f.neighborhood && r.neighborhood !== f.neighborhood) return false;
     if (f.search) {
-      const haystack = [r.name, r.address, r.city, r.neighborhood, ...(r.cuisine||[]), ...(r.tags||[])].join(' ').toLowerCase();
+      const haystack = [r.name, r.address, r.country, r.city, r.neighborhood, ...(r.cuisine||[]), ...(r.tags||[])].join(' ').toLowerCase();
       if (!haystack.includes(f.search)) return false;
     }
     return true;
-  }).sort((a, b) => {
-    const f2 = getFilters();
-    if (f2.sort === 'rating') return (b.rating||0) - (a.rating||0);
-    if (f2.sort === 'newest') return (b.first_seen||'').localeCompare(a.first_seen||'');
-    if (f2.sort === 'name') return (a.name||'').localeCompare(b.name||'');
-    if (f2.sort === 'reviews') return (b.review_count||0) - (a.review_count||0);
+  }).sort((a,b) => {
+    const s = getFilters().sort;
+    if (s==='rating') return (b.rating||0)-(a.rating||0);
+    if (s==='newest') return (b.first_seen||'').localeCompare(a.first_seen||'');
+    if (s==='name') return (a.name||'').localeCompare(b.name||'');
+    if (s==='reviews') return (b.review_count||0)-(a.review_count||0);
     return 0;
   });
 }
+
+function priceDisplay(level) {
+  if (!level) return '';
+  return '<span class="price-dots">' + '€'.repeat(level) + '<span style="color:var(--rule)">' + '€'.repeat(4-level) + '</span></span>';
+}
+function sourceBadge(source) {
+  const labels = {google_places:'Google Maps',openstreetmap:'OpenStreetMap',foursquare:'Foursquare',mapy_cz:'Mapy.cz'};
+  return `<span class="source-dot ${source}"></span>${labels[source]||source}`;
+}
+function isNew(d) { if (!d) return false; const c=new Date(); c.setDate(c.getDate()-14); return new Date(d)>=c; }
+function formatDate(iso) { if(!iso) return ''; try { return new Date(iso).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); } catch { return iso; } }
 
 function renderCards(restaurants) {
   const container = document.getElementById('cards');
   const stats = document.getElementById('statsBar');
   if (!restaurants.length) {
     container.innerHTML = '<div class="empty-state"><p>No restaurants match your filters.</p></div>';
-    stats.innerHTML = 'No results';
-    return;
+    stats.innerHTML = 'No results'; return;
   }
   stats.innerHTML = `Showing <strong>${restaurants.length}</strong> of <strong>${allRestaurants.length}</strong> restaurants · Updated ${formatDate(generatedAt.split('T')[0])}`;
-  container.innerHTML = restaurants.map((r, i) => {
+  container.innerHTML = restaurants.map((r,i) => {
     const status = getUserStatus(r.id);
     const link = r.google_maps_url || r.website || '#';
-    const cuisineTags = (r.cuisine||[]).slice(0,3).map(c => `<span class="tag">${c}</span>`).join('');
+    const cuisineTags = (r.cuisine||[]).slice(0,3).map(c=>`<span class="tag">${c}</span>`).join('');
     const neighborhoodTag = r.neighborhood ? `<span class="tag neighborhood">${r.neighborhood}</span>` : '';
     const cityTag = r.city ? `<span class="tag city">${r.city}</span>` : '';
+    const countryTag = r.country ? `<span class="tag country">${r.country}</span>` : '';
     const sourceTag = `<span class="tag source">${sourceBadge(r.source)}</span>`;
     const price = priceDisplay(r.price_level);
     const newBadge = isNew(r.first_seen) ? '<span class="badge-new">New</span>' : '';
     const hoursText = r.opening_hours?.weekday_text?.length
       ? `<div class="card-hours">Today: ${r.opening_hours.weekday_text[new Date().getDay()===0?6:new Date().getDay()-1]}</div>`
       : (r.opening_hours?.raw ? `<div class="card-hours">${r.opening_hours.raw}</div>` : '');
-    const wantActive = status==='want_to_visit' ? 'active-want' : '';
-    const visitedActive = status==='visited' ? 'active-visited' : '';
-    const dismissActive = status==='dismissed' ? 'active-dismiss' : '';
+    const wantActive = status==='want_to_visit'?'active-want':'';
+    const visitedActive = status==='visited'?'active-visited':'';
+    const dismissActive = status==='dismissed'?'active-dismiss':'';
     const ratingHtml = r.rating
-      ? `<div class="rating-num">${r.rating.toFixed(1)}</div><div class="review-count">${r.review_count ? r.review_count.toLocaleString()+' reviews' : ''}</div>`
+      ? `<div class="rating-num">${r.rating.toFixed(1)}</div><div class="review-count">${r.review_count?r.review_count.toLocaleString()+' reviews':''}</div>`
       : `<div class="rating-num no-rating">—</div>`;
     return `
       <div class="card" data-id="${r.id}">
@@ -494,7 +437,7 @@ function renderCards(restaurants) {
         <div class="card-body">
           <div class="card-name"><a href="${link}" target="_blank" rel="noopener">${r.name}</a></div>
           <div class="card-address">${r.address}</div>
-          <div class="card-meta">${cuisineTags}${neighborhoodTag}${cityTag}${price}${sourceTag}</div>
+          <div class="card-meta">${cuisineTags}${neighborhoodTag}${cityTag}${countryTag}${price}${sourceTag}</div>
           ${hoursText}
           <div class="card-actions">
             <button class="action-btn ${wantActive}" onclick="setUserStatus('${r.id}','${status==='want_to_visit'?'new':'want_to_visit'}')">★ Want to visit</button>
@@ -513,24 +456,20 @@ function renderCards(restaurants) {
 
 function onFilterChange() { renderCards(filteredRestaurants()); }
 
-// ── event listeners ───────────────────────────────────────────────────────────
 document.getElementById('filterSearch').addEventListener('input', onFilterChange);
 document.getElementById('filterCuisine').addEventListener('change', onFilterChange);
 document.getElementById('filterNeighborhood').addEventListener('change', onFilterChange);
 document.getElementById('filterRating').addEventListener('input', onFilterChange);
 document.getElementById('filterSort').addEventListener('change', onFilterChange);
 document.getElementById('filterSource').addEventListener('change', onFilterChange);
-
-['cityFilter','priceFilter','statusFilter'].forEach(id => {
+['priceFilter','statusFilter'].forEach(id => {
   document.querySelectorAll(`#${id} .pill`).forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll(`#${id} .pill`).forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      onFilterChange();
+      btn.classList.add('active'); onFilterChange();
     });
   });
 });
-
 document.getElementById('btnReset').addEventListener('click', () => {
   document.getElementById('filterSearch').value = '';
   document.getElementById('filterCuisine').value = '';
@@ -538,46 +477,36 @@ document.getElementById('btnReset').addEventListener('click', () => {
   document.getElementById('filterRating').value = '0';
   document.getElementById('filterSort').value = 'rating';
   document.getElementById('filterSource').value = '';
-  ['cityFilter','priceFilter','statusFilter'].forEach(id => {
+  ['countryFilter','cityFilter','priceFilter','statusFilter'].forEach(id => {
     document.querySelectorAll(`#${id} .pill`).forEach((b,i) => b.classList.toggle('active', i===0));
   });
+  rebuildCityPills('');
   onFilterChange();
 });
-
 document.getElementById('btnSyncToggle').addEventListener('click', () => {
   const panel = document.getElementById('syncPanel');
   const isOpen = panel.classList.contains('open');
   panel.classList.toggle('open', !isOpen);
   document.getElementById('btnSyncToggle').textContent = isOpen ? 'Enable sync' : 'Cancel';
 });
-
-document.getElementById('btnDisconnect').addEventListener('click', () => { disconnect(); });
-
+document.getElementById('btnDisconnect').addEventListener('click', disconnect);
 document.getElementById('btnConnect').addEventListener('click', () => {
   const token = document.getElementById('tokenInput').value.trim();
   if (!token) { document.getElementById('syncErrorMsg').textContent = 'Please enter a token.'; return; }
   connect(token);
 });
+document.getElementById('tokenInput').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('btnConnect').click(); });
 
-document.getElementById('tokenInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('btnConnect').click();
-});
-
-// ── boot ──────────────────────────────────────────────────────────────────────
+// boot
 loadLocalStates();
-
-// auto-reconnect if token stored
-const savedToken = lsGet(LS_TOKEN);
-const savedGist = lsGet(LS_GIST);
+const savedToken = lsGet(LS_TOKEN), savedGist = lsGet(LS_GIST);
 if (savedToken && savedGist) {
-  ghToken = savedToken;
-  gistId = savedGist;
+  ghToken = savedToken; gistId = savedGist;
   setSyncUI('syncing', 'Loading sync…');
   loadFromGist()
     .then(() => { setSyncUI('connected', 'Synced'); renderCards(filteredRestaurants()); })
-    .catch(e => { setSyncUI('error', 'Sync error — reconnect'); ghToken=''; gistId=''; });
+    .catch(() => { setSyncUI('error', 'Sync error — reconnect'); ghToken=''; gistId=''; });
 }
-
 fetch(DATA_URL)
   .then(r => r.json())
   .then(data => {
