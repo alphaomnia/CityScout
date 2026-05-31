@@ -137,7 +137,7 @@
     <div class="filter-bar">
       <div class="filter-group">
         <label>Country</label>
-        <div class="pill-row" id="countryFilter"><button class="pill active" data-val="">All</button></div>
+        <select id="filterCountry"><option value="">All countries</option></select>
       </div>
       <div class="filter-group">
         <label>City</label>
@@ -280,7 +280,8 @@ function populateFilters(restaurants){
     for(const c of(r.cuisine||[]))if(c)cuisines.add(c);
     if(r.neighborhood)neighborhoods.add(r.neighborhood);
   }
-  buildPillFilter('countryFilter',countries,rebuildCityPills);
+  const countrySelect=document.getElementById('filterCountry');
+  [...countries].sort().forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;countrySelect.appendChild(o);});
   rebuildCityPills('');
   const cSelect=document.getElementById('filterCuisine');
   [...cuisines].sort().forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;cSelect.appendChild(o);});
@@ -290,7 +291,7 @@ function populateFilters(restaurants){
 }
 function getFilters(){
   return{
-    country:document.querySelector('#countryFilter .pill.active')?.dataset.val||'',
+    country:document.getElementById('filterCountry').value,
     city:document.querySelector('#cityFilter .pill.active')?.dataset.val||'',
     search:document.getElementById('filterSearch').value.toLowerCase().trim(),
     cuisine:document.getElementById('filterCuisine').value,
@@ -362,6 +363,10 @@ function renderCards(restaurants){
   }).join('');
 }
 function onFilterChange(){renderCards(filteredRestaurants());}
+document.getElementById('filterCountry').addEventListener('change',()=>{
+  rebuildCityPills(document.getElementById('filterCountry').value);
+  onFilterChange();
+});
 document.getElementById('filterSearch').addEventListener('input',onFilterChange);
 document.getElementById('filterCuisine').addEventListener('change',onFilterChange);
 document.getElementById('filterNeighborhood').addEventListener('change',onFilterChange);
@@ -374,13 +379,14 @@ document.getElementById('filterSource').addEventListener('change',onFilterChange
   });
 });
 document.getElementById('btnReset').addEventListener('click',()=>{
+  document.getElementById('filterCountry').value='';
   document.getElementById('filterSearch').value='';
   document.getElementById('filterCuisine').value='';
   document.getElementById('filterNeighborhood').value='';
   document.getElementById('filterRating').value='0';
   document.getElementById('filterSort').value='rating';
   document.getElementById('filterSource').value='';
-  ['countryFilter','cityFilter','priceFilter','statusFilter'].forEach(id=>{
+  ['cityFilter','priceFilter','statusFilter'].forEach(id=>{
     document.querySelectorAll(`#${id} .pill`).forEach((b,i)=>b.classList.toggle('active',i===0));
   });
   rebuildCityPills('');onFilterChange();
