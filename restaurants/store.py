@@ -7,11 +7,15 @@ from typing import Iterable
 
 from .models import RestaurantListing, _now_iso
 
+SCHEMA_VERSION = 2
+
 
 class RestaurantStore:
     def __init__(self, path: Path) -> None:
         self._path = path
         self._restaurants: dict[str, RestaurantListing] = {}
+        self._changelog: list[dict] = []
+        self._data_version: int = 1
         self._load()
 
     def _load(self) -> None:
@@ -22,6 +26,8 @@ class RestaurantStore:
             for r in data.get("restaurants", []):
                 listing = RestaurantListing.from_dict(r)
                 self._restaurants[listing.id] = listing
+            self._changelog = data.get("changelog", [])
+            self._data_version = data.get("data_version", 1)
         except Exception as exc:
             print(f"[store] Failed to load {self._path}: {exc}")
 
@@ -58,13 +64,22 @@ class RestaurantStore:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
         return [r for r in self._restaurants.values() if r.first_seen >= cutoff]
 
+    def add_changelog_entry(self, entry: dict) -> None:
+        """Prepend a run summary entry; keep last 90 entries."""
+        self._changelog.insert(0, entry)
+        self._changelog = self._changelog[:90]
+        self._data_version += 1
+
     def save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         restaurants = sorted(self._restaurants.values(), key=lambda r: (r.first_seen, r.rating), reverse=True)
         payload = {
+            "schema_version": SCHEMA_VERSION,
+            "data_version": self._data_version,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "count": len(restaurants),
+            "changelog": self._changelog,
             "restaurants": [r.to_dict() for r in restaurants],
         }
         self._path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), "utf-8")
-        print(f"[store] Saved {len(restaurants)} restaurants to {self._path}")
+        print(f"[store] Saved {len(restaurants)} restaurants to {self._path} (data_version={self._data_version})")

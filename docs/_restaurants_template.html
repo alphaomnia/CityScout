@@ -60,7 +60,7 @@
     .btn-reset { font-family: 'Inter', sans-serif; font-size: 12px; padding: 6px 14px; border: 1px solid var(--rule); border-radius: 4px; cursor: pointer; background: transparent; color: var(--ink-mid); }
     .btn-reset:hover { border-color: var(--ink-mid); color: var(--ink); }
     .page { max-width: 1280px; margin: 0 auto; padding: 16px 40px 80px; position: relative; z-index: 1; }
-    .stats-bar { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--ink-faint); padding: 8px 0 16px; border-bottom: 1px solid var(--rule); margin-bottom: 20px; display: flex; gap: 20px; }
+    .stats-bar { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--ink-faint); padding: 8px 0 16px; border-bottom: 1px solid var(--rule); margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap; }
     .stats-bar strong { color: var(--ink-mid); }
     .cards { display: flex; flex-direction: column; }
     .card { display: grid; grid-template-columns: 48px 1fr auto; gap: 0 20px; padding: 18px 0; border-bottom: 1px solid var(--rule); align-items: start; }
@@ -97,6 +97,21 @@
     .source-dot.foursquare { background: #F94877; }
     .source-dot.mapy_cz { background: #FF6600; }
     .source-dot.here { background: #00AFAA; }
+    .site-footer { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--ink-faint); border-top: 1px solid var(--rule); margin-top: 40px; padding: 20px 0 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .footer-version { display: flex; align-items: center; gap: 10px; }
+    .version-badge { font-size: 11px; background: var(--paper); border: 1px solid var(--rule); border-radius: 3px; padding: 2px 8px; color: var(--ink-mid); font-family: 'Inter', sans-serif; }
+    .btn-changelog { font-family: 'Inter', sans-serif; font-size: 11px; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 3px; cursor: pointer; background: transparent; color: var(--ink-faint); }
+    .btn-changelog:hover { border-color: var(--ink-mid); color: var(--ink-mid); }
+    .changelog-panel { display: none; margin-top: 16px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+    .changelog-panel.open { display: block; }
+    .changelog-panel table { width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif; font-size: 11px; }
+    .changelog-panel th { background: #f5f3ee; text-align: left; padding: 6px 12px; color: var(--ink-faint); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; border-bottom: 1px solid var(--rule); }
+    .changelog-panel td { padding: 6px 12px; border-bottom: 1px solid var(--rule); color: var(--ink-mid); vertical-align: top; }
+    .changelog-panel tr:last-child td { border-bottom: none; }
+    .changelog-panel tr:hover td { background: #faf8f3; }
+    .cl-new { color: var(--sage); font-weight: 600; }
+    .cl-mode { font-size: 10px; padding: 1px 5px; border-radius: 2px; background: var(--accent-soft); color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; }
+    .cl-mode.bulk { background: #eef0f8; color: #3a4a8a; }
     @media (max-width: 640px) {
       .sync-bar, .sync-panel { padding-left: 16px; padding-right: 16px; }
       .page-header { padding-left: 16px; padding-right: 16px; }
@@ -206,6 +221,19 @@
 <div class="page">
   <div class="stats-bar" id="statsBar">Loading…</div>
   <div class="cards" id="cards"></div>
+  <footer class="site-footer">
+    <div class="footer-version">
+      <span id="footerVersion" class="version-badge">v—</span>
+      <button class="btn-changelog" id="btnChangelog">Run history</button>
+    </div>
+    <span id="footerMeta"></span>
+  </footer>
+  <div class="changelog-panel" id="changelogPanel">
+    <table>
+      <thead><tr><th>Date</th><th>Mode</th><th>Cities</th><th>Fetched</th><th>New</th><th>Updated</th><th>Total</th><th>Duration</th></tr></thead>
+      <tbody id="changelogBody"></tbody>
+    </table>
+  </div>
 </div>
 <script>
 const DATA_URL='restaurants.json',LS_KEY='restaurants_user_states_v1',LS_TOKEN='cityscout_gh_token',LS_GIST='cityscout_gist_id',GIST_FILENAME='cityscout-restaurant-states.json';
@@ -337,6 +365,24 @@ function sourceBadge(source){
 }
 function isNew(d){if(!d)return false;const c=new Date();c.setDate(c.getDate()-14);return new Date(d)>=c;}
 function formatDate(iso){if(!iso)return '';try{return new Date(iso).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch{return iso;}}
+function formatDateTime(iso){if(!iso)return '';try{return new Date(iso).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return iso;}}
+function renderChangelog(entries){
+  if(!entries||!entries.length){document.getElementById('changelogBody').innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ink-faint)">No run history yet.</td></tr>';return;}
+  document.getElementById('changelogBody').innerHTML=entries.map(e=>{
+    const modeClass=e.mode==='bulk'?'bulk':'';
+    const dur=e.duration_s!=null?(e.duration_s<60?e.duration_s+'s':Math.round(e.duration_s/60)+'m'):'—';
+    return `<tr>
+      <td>${formatDateTime(e.run_at)}</td>
+      <td><span class="cl-mode ${modeClass}">${e.mode||'—'}</span></td>
+      <td>${e.cities_scanned??'—'}</td>
+      <td>${e.fetched_raw??'—'}</td>
+      <td class="cl-new">+${e.new??0}</td>
+      <td>${e.updated??'—'}</td>
+      <td>${e.total??'—'}</td>
+      <td>${dur}</td>
+    </tr>`;
+  }).join('');
+}
 function renderCards(restaurants){
   const container=document.getElementById('cards'),stats=document.getElementById('statsBar');
   if(!restaurants.length){container.innerHTML='<div class="empty-state"><p>No restaurants match your filters.</p></div>';stats.innerHTML='No results';return;}
@@ -391,6 +437,11 @@ document.getElementById('btnReset').addEventListener('click',()=>{
   });
   rebuildCityPills('');onFilterChange();
 });
+document.getElementById('btnChangelog').addEventListener('click',()=>{
+  const panel=document.getElementById('changelogPanel');
+  panel.classList.toggle('open');
+  document.getElementById('btnChangelog').textContent=panel.classList.contains('open')?'Hide history':'Run history';
+});
 document.getElementById('btnSyncToggle').addEventListener('click',()=>{
   const panel=document.getElementById('syncPanel'),isOpen=panel.classList.contains('open');
   panel.classList.toggle('open',!isOpen);
@@ -412,6 +463,10 @@ if(savedToken&&savedGist){
 fetch(DATA_URL).then(r=>r.json()).then(data=>{
   allRestaurants=data.restaurants||[];generatedAt=data.generated_at||'';
   document.getElementById('mastheadDate').textContent=formatDate(generatedAt.split('T')[0]);
+  const dv=data.data_version||1,sv=data.schema_version||1;
+  document.getElementById('footerVersion').textContent=`data v${dv} · schema v${sv}`;
+  document.getElementById('footerMeta').textContent=`${allRestaurants.length.toLocaleString()} restaurants`;
+  renderChangelog(data.changelog||[]);
   populateFilters(allRestaurants);renderCards(filteredRestaurants());
 }).catch(err=>{
   document.getElementById('cards').innerHTML='<div class="empty-state"><p>Could not load restaurant data. '+err.message+'</p></div>';
