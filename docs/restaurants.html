@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Prague Restaurants · Daily Edition</title>
+  <title>Czech Restaurants · Daily Edition</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -103,6 +103,7 @@
     .tag { font-family: 'Inter', sans-serif; font-size: 11px; padding: 2px 8px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); }
     .tag.neighborhood { background: #eef4f0; color: var(--sage); }
     .tag.source { background: #f0f0f0; color: var(--ink-mid); }
+    .tag.city { background: #eef0f8; color: #3a4a8a; }
     .price-dots { font-size: 12px; color: var(--gold); letter-spacing: 1px; }
     .card-hours { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
     .card-actions { display: flex; gap: 6px; margin-top: 8px; }
@@ -130,6 +131,7 @@
     .source-dot.google_places { background: #4285F4; }
     .source-dot.openstreetmap { background: #7EBC6F; }
     .source-dot.foursquare { background: #F94877; }
+    .source-dot.mapy_cz { background: #FF6600; }
     @media (max-width: 640px) {
       .page { padding: 16px 16px 60px; }
       .card { grid-template-columns: 36px 1fr; }
@@ -141,15 +143,23 @@
 <body>
 <div class="page">
   <div class="masthead">
-    <div class="left">Prague · Restaurants</div>
+    <div class="left">Czech Republic · Restaurants</div>
     <div class="masthead-title">
-      <h1>Prague Eats</h1>
+      <h1>CityScout Eats</h1>
       <div class="subtitle">Restaurant Discovery · Updated Daily</div>
     </div>
     <div class="right" id="mastheadDate">—</div>
   </div>
 
   <div class="filter-bar">
+    <div class="filter-group">
+      <label>City</label>
+      <div class="pill-row" id="cityFilter">
+        <button class="pill active" data-val="">All cities</button>
+        <button class="pill" data-val="Prague">Prague</button>
+        <button class="pill" data-val="Brno">Brno</button>
+      </div>
+    </div>
     <div class="filter-group">
       <label>Search</label>
       <input type="text" id="filterSearch" placeholder="name, cuisine, neighborhood…" />
@@ -202,6 +212,7 @@
         <option value="google_places">Google Maps</option>
         <option value="openstreetmap">OpenStreetMap</option>
         <option value="foursquare">Foursquare</option>
+        <option value="mapy_cz">Mapy.cz</option>
       </select>
     </div>
     <div class="filter-actions">
@@ -243,7 +254,7 @@ function priceDisplay(level) {
 }
 
 function sourceBadge(source) {
-  const labels = { google_places: 'Google Maps', openstreetmap: 'OpenStreetMap', foursquare: 'Foursquare' };
+  const labels = { google_places: 'Google Maps', openstreetmap: 'OpenStreetMap', foursquare: 'Foursquare', mapy_cz: 'Mapy.cz' };
   return `<span class="source-dot ${source}"></span>${labels[source] || source}`;
 }
 
@@ -277,6 +288,7 @@ function populateFilters(restaurants) {
 
 function getFilters() {
   return {
+    city: document.querySelector('#cityFilter .pill.active')?.dataset.val || '',
     search: document.getElementById('filterSearch').value.toLowerCase().trim(),
     cuisine: document.getElementById('filterCuisine').value,
     neighborhood: document.getElementById('filterNeighborhood').value,
@@ -293,6 +305,7 @@ function filteredRestaurants() {
   return allRestaurants
     .filter(r => {
       const status = getUserStatus(r.id);
+      if (f.city && r.city !== f.city) return false;
       if (f.status === 'hide_dismissed' && status === 'dismissed') return false;
       if (f.status && f.status !== 'hide_dismissed' && status !== f.status) return false;
       if (f.source && r.source !== f.source) return false;
@@ -301,7 +314,7 @@ function filteredRestaurants() {
       if (f.cuisine && !(r.cuisine || []).includes(f.cuisine)) return false;
       if (f.neighborhood && r.neighborhood !== f.neighborhood) return false;
       if (f.search) {
-        const haystack = [r.name, r.address, r.neighborhood, ...(r.cuisine||[]), ...(r.tags||[])].join(' ').toLowerCase();
+        const haystack = [r.name, r.address, r.city, r.neighborhood, ...(r.cuisine||[]), ...(r.tags||[])].join(' ').toLowerCase();
         if (!haystack.includes(f.search)) return false;
       }
       return true;
@@ -332,6 +345,7 @@ function renderCards(restaurants) {
     const link = r.google_maps_url || r.website || '#';
     const cuisineTags = (r.cuisine || []).slice(0, 3).map(c => `<span class="tag">${c}</span>`).join('');
     const neighborhoodTag = r.neighborhood ? `<span class="tag neighborhood">${r.neighborhood}</span>` : '';
+    const cityTag = r.city ? `<span class="tag city">${r.city}</span>` : '';
     const sourceTag = `<span class="tag source">${sourceBadge(r.source)}</span>`;
     const price = priceDisplay(r.price_level);
     const newBadge = isNew(r.first_seen) ? '<span class="badge-new">New</span>' : '';
@@ -351,7 +365,7 @@ function renderCards(restaurants) {
         <div class="card-body">
           <div class="card-name"><a href="${link}" target="_blank" rel="noopener">${r.name}</a></div>
           <div class="card-address">${r.address}</div>
-          <div class="card-meta">${cuisineTags}${neighborhoodTag}${price}${sourceTag}</div>
+          <div class="card-meta">${cuisineTags}${neighborhoodTag}${cityTag}${price}${sourceTag}</div>
           ${hoursText}
           <div class="card-actions">
             <button class="action-btn ${wantActive}" onclick="setUserStatus('${r.id}', '${status === 'want_to_visit' ? 'new' : 'want_to_visit'}')">★ Want to visit</button>
@@ -377,19 +391,13 @@ document.getElementById('filterRating').addEventListener('input', onFilterChange
 document.getElementById('filterSort').addEventListener('change', onFilterChange);
 document.getElementById('filterSource').addEventListener('change', onFilterChange);
 
-document.querySelectorAll('#priceFilter .pill').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#priceFilter .pill').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    onFilterChange();
-  });
-});
-
-document.querySelectorAll('#statusFilter .pill').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#statusFilter .pill').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    onFilterChange();
+['cityFilter', 'priceFilter', 'statusFilter'].forEach(id => {
+  document.querySelectorAll(`#${id} .pill`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll(`#${id} .pill`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      onFilterChange();
+    });
   });
 });
 
@@ -400,8 +408,9 @@ document.getElementById('btnReset').addEventListener('click', () => {
   document.getElementById('filterRating').value = '0';
   document.getElementById('filterSort').value = 'rating';
   document.getElementById('filterSource').value = '';
-  document.querySelectorAll('#priceFilter .pill').forEach((b, i) => b.classList.toggle('active', i === 0));
-  document.querySelectorAll('#statusFilter .pill').forEach((b, i) => b.classList.toggle('active', i === 0));
+  ['cityFilter', 'priceFilter', 'statusFilter'].forEach(id => {
+    document.querySelectorAll(`#${id} .pill`).forEach((b, i) => b.classList.toggle('active', i === 0));
+  });
   onFilterChange();
 });
 
