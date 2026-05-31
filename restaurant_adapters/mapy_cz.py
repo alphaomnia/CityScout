@@ -18,7 +18,6 @@ class MapyCzAdapter(BaseRestaurantAdapter):
 
         center = self.city_config["center"]
         radius = self.city_config["radius_m"]
-        city_name = self.city_config["name"]
         results: list[RestaurantListing] = []
         offset = 0
 
@@ -43,7 +42,7 @@ class MapyCzAdapter(BaseRestaurantAdapter):
                 break
 
             for item in items:
-                listing = self._to_listing(item, city_name)
+                listing = self._to_listing(item)
                 if listing:
                     results.append(listing)
 
@@ -54,18 +53,14 @@ class MapyCzAdapter(BaseRestaurantAdapter):
 
         return results
 
-    def _to_listing(self, item: dict, city_name: str) -> RestaurantListing | None:
+    def _to_listing(self, item: dict) -> RestaurantListing | None:
         name = item.get("name", "").strip()
         if not name:
             return None
 
         location = item.get("location", {})
-        parts = [
-            location.get("streetAddress", ""),
-            location.get("municipalityName", ""),
-        ]
+        parts = [location.get("streetAddress", ""), location.get("municipalityName", "")]
         address = ", ".join(p for p in parts if p) or self.city_config["osm_name"]
-
         mapy_id = str(item.get("id", ""))
         url = f"https://mapy.cz/zakladni?source=firm&id={mapy_id}" if mapy_id else ""
         contact = item.get("contact", {})
@@ -76,7 +71,8 @@ class MapyCzAdapter(BaseRestaurantAdapter):
             address=address,
             source="mapy_cz",
             source_id=mapy_id,
-            city=city_name,
+            country=self.city_config["country"],
+            city=self.city_config["name"],
             neighborhood=location.get("quarterName", location.get("districtName", "")),
             cuisine=cats,
             phone=contact.get("phone", ""),

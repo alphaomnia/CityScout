@@ -33,14 +33,11 @@ class GooglePlacesAdapter(BaseRestaurantAdapter):
 
     def _bulk_scan(self) -> list[RestaurantListing]:
         city_name = self.city_config["name"]
-        districts = self.city_config["districts"]
-        neighborhoods = self.city_config["neighborhoods"]
-        queries = [f"restaurants in {d}" for d in districts]
-        queries += [f"restaurants in {n}, {city_name}" for n in neighborhoods]
+        queries = [f"restaurants in {d}" for d in self.city_config["districts"]]
+        queries += [f"restaurants in {n}, {city_name}" for n in self.city_config["neighborhoods"]]
         return self._run_text_searches(queries)
 
     def _incremental(self) -> list[RestaurantListing]:
-        city_name = self.city_config["name"]
         districts = self.city_config["districts"]
         nearby = self._nearby_search()
         text = self._run_text_searches([f"restaurants in {districts[0]}", f"restaurants in {districts[1]}"])
@@ -130,6 +127,7 @@ class GooglePlacesAdapter(BaseRestaurantAdapter):
             address=src.get("formatted_address", place.get("formatted_address", "")),
             source="google_places",
             source_id=place_id,
+            country=self.city_config["country"],
             city=self.city_config["name"],
             neighborhood=_extract_neighborhood(src.get("address_components", [])),
             cuisine=_types_to_cuisine(src.get("types", [])),

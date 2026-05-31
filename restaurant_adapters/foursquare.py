@@ -18,7 +18,6 @@ class FoursquareAdapter(BaseRestaurantAdapter):
 
         center = self.city_config["center"]
         radius = self.city_config["radius_m"]
-        city_name = self.city_config["name"]
         results: list[RestaurantListing] = []
         cursor: str | None = None
         headers = {"Authorization": self.api_key, "Accept": "application/json"}
@@ -40,7 +39,7 @@ class FoursquareAdapter(BaseRestaurantAdapter):
 
             data = resp.json()
             for place in data.get("results", []):
-                listing = self._to_listing(place, city_name)
+                listing = self._to_listing(place)
                 if listing:
                     results.append(listing)
 
@@ -50,16 +49,18 @@ class FoursquareAdapter(BaseRestaurantAdapter):
             self._sleep(0.2)
 
         if len(results) >= MAX_RESULTS:
-            print(f"[{self.name}] Hit {MAX_RESULTS} result cap (free tier limit)")
+            print(f"[{self.name}] Hit {MAX_RESULTS} result cap")
         return results
 
-    def _to_listing(self, place: dict, city_name: str) -> RestaurantListing | None:
+    def _to_listing(self, place: dict) -> RestaurantListing | None:
         name = place.get("name", "").strip()
         if not name:
             return None
 
         location = place.get("location", {})
-        address = ", ".join(p for p in [location.get("address", ""), location.get("locality", ""), location.get("region", "")] if p) or self.city_config["osm_name"]
+        address = ", ".join(p for p in [
+            location.get("address", ""), location.get("locality", ""), location.get("region", "")
+        ] if p) or self.city_config["osm_name"]
         fsq_id = place.get("fsq_id", "")
         raw_rating = place.get("rating", 0.0)
         neighborhood = location.get("neighborhood", [""])[0] if isinstance(location.get("neighborhood"), list) else location.get("neighborhood", "")
@@ -69,7 +70,8 @@ class FoursquareAdapter(BaseRestaurantAdapter):
             address=address,
             source="foursquare",
             source_id=fsq_id,
-            city=city_name,
+            country=self.city_config["country"],
+            city=self.city_config["name"],
             neighborhood=neighborhood,
             cuisine=[cat["name"] for cat in place.get("categories", []) if cat.get("name")],
             price_level=place.get("price", 0),

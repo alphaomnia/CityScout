@@ -1,8 +1,10 @@
-# Prague & Brno Restaurant Aggregator — Runtime Configuration
+# Multi-country Restaurant Aggregator — Runtime Configuration
 
 cities:
   - prague
   - brno
+  - bratislava
+  - kosice
 
 adapters:
   - openstreetmap

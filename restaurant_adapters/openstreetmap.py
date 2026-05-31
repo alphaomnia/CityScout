@@ -46,15 +46,14 @@ class OpenStreetMapAdapter(BaseRestaurantAdapter):
         if not resp:
             return []
 
-        city_name = self.city_config["name"]
         listings = []
         for el in resp.json().get("elements", []):
-            listing = self._to_listing(el, city_name)
+            listing = self._to_listing(el)
             if listing:
                 listings.append(listing)
         return listings
 
-    def _to_listing(self, el: dict, city_name: str) -> RestaurantListing | None:
+    def _to_listing(self, el: dict) -> RestaurantListing | None:
         tags = el.get("tags", {})
         name = tags.get("name", "").strip()
         if not name:
@@ -76,7 +75,8 @@ class OpenStreetMapAdapter(BaseRestaurantAdapter):
             address=address,
             source="openstreetmap",
             source_id=f"{el['type']}/{el['id']}",
-            city=city_name,
+            country=self.city_config["country"],
+            city=self.city_config["name"],
             neighborhood=tags.get("addr:suburb", tags.get("addr:quarter", "")),
             cuisine=_parse_cuisine(tags.get("cuisine", "")),
             phone=tags.get("phone", tags.get("contact:phone", "")),
