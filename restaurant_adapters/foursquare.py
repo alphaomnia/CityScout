@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import time
+from http.client import IncompleteRead
+
+import requests
+
 from restaurants.config import FOURSQUARE_BASE
 from restaurants.models import RestaurantListing
 from .base import BaseRestaurantAdapter
@@ -7,6 +12,7 @@ from .base import BaseRestaurantAdapter
 RESTAURANT_CATEGORY_ID = "13065"
 MAX_RESULTS = 950
 FIELDS = "fsq_id,name,location,categories,tel,website,rating,price,hours,photos,stats"
+RETRY_DELAYS = [2, 5, 10]  # seconds between retries
 
 
 class FoursquareAdapter(BaseRestaurantAdapter):
@@ -22,6 +28,7 @@ class FoursquareAdapter(BaseRestaurantAdapter):
         results: list[RestaurantListing] = []
         cursor: str | None = None
         headers = {"Authorization": self.api_key, "Accept": "application/json"}
+        rate_limited = False
 
         while len(results) < MAX_RESULTS:
             params: dict = {
@@ -35,8 +42,13 @@ class FoursquareAdapter(BaseRestaurantAdapter):
             if cursor:
                 params["cursor"] = cursor
 
-            resp = self._get(f"{FOURSQUARE_BASE}/places/search", params=params, headers=headers)
-            if not resp:
+            resp = self._get_with_retry(
+                f"{FOURSQUARE_BASE}/places/search",
+                params=params,
+                headers=headers,
+            )
+            if resp is None:
+                rate_limited = True
                 break
 
             data = resp.json()
@@ -48,11 +60,37 @@ class FoursquareAdapter(BaseRestaurantAdapter):
             cursor = data.get("context", {}).get("next_cursor")
             if not cursor:
                 break
-            self._sleep(0.2)
+            self._sleep(0.5)
 
-        if len(results) >= MAX_RESULTS:
+        if rate_limited:
+            city = self.city_config["name"]
+            print(f"[{self.name}/{city}] Rate limit reached — {len(results)} results so far, stopping.")
+        elif len(results) >= MAX_RESULTS:
             print(f"[{self.name}] Hit {MAX_RESULTS} result cap")
         return results
+
+    def _get_with_retry(self, url: str, **kwargs) -> requests.Response | None:
+        for attempt, delay in enumerate([0] + RETRY_DELAYS):
+            if delay:
+                self._sleep(delay)
+            try:
+                resp = self.session.get(url, timeout=self.timeout, **kwargs)
+                if resp.status_code == 429:
+                    print(f"[{self.name}] 429 rate limit on attempt {attempt + 1}")
+                    continue
+                if resp.status_code == 401:
+                    print(f"[{self.name}] 401 Unauthorized — daily quota likely exhausted")
+                    return None
+                resp.raise_for_status()
+                return resp
+            except (requests.exceptions.ChunkedEncodingError, IncompleteRead, ConnectionError) as exc:
+                print(f"[{self.name}] Connection error attempt {attempt + 1}: {exc}")
+                continue
+            except requests.RequestException as exc:
+                print(f"[{self.name}] Request error: {exc}")
+                return None
+        print(f"[{self.name}] All retries exhausted")
+        return None
 
     def _to_listing(self, place: dict) -> RestaurantListing | None:
         name = place.get("name", "").strip()
@@ -74,7 +112,6 @@ class FoursquareAdapter(BaseRestaurantAdapter):
             else location.get("neighborhood", "")
         )
 
-        # hours
         hours_data = place.get("hours", {})
         oh: dict = {}
         if hours_data:
@@ -85,7 +122,6 @@ class FoursquareAdapter(BaseRestaurantAdapter):
             if open_now is not None:
                 oh["open_now"] = open_now
 
-        # photos
         photos = []
         for p in place.get("photos", [])[:3]:
             prefix = p.get("prefix", "")

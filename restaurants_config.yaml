@@ -58,9 +58,7 @@ cities:
 
 adapters:
   - openstreetmap
-  - mapy_cz
   - foursquare
-  - google_places
 
 store:
   path: docs/restaurants.json
