@@ -58,6 +58,7 @@ cities:
 
 adapters:
   - openstreetmap
+  - here
   - foursquare
 
 store:
