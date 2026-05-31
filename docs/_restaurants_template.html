@@ -274,19 +274,19 @@ function setSyncUI(state,msg){
 }
 async function gistRequest(method,path,body){
   const resp=await fetch('https://api.github.com'+path,{method,headers:{'Authorization':'token '+ghToken,'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
-  if(!resp.ok)throw new Error(`GitHub API ${resp.status}: ${await resp.text()}`);
+  if(!resp.ok)throw new Error('GitHub API '+resp.status);
   return resp.json();
 }
 async function findOrCreateGist(){
   const gists=await gistRequest('GET','/gists?per_page=100');
-  const ex=gists.find(g=>g.files?.[GIST_FILENAME]);
+  const ex=gists.find(g=>g.files&&g.files[GIST_FILENAME]);
   if(ex)return ex.id;
   const c=await gistRequest('POST','/gists',{description:'CityScout restaurant states',public:false,files:{[GIST_FILENAME]:{content:'{}'}}});
   return c.id;
 }
 async function loadFromGist(){
   const data=await gistRequest('GET','/gists/'+gistId);
-  const content=data.files?.[GIST_FILENAME]?.content;
+  const content=data.files&&data.files[GIST_FILENAME]&&data.files[GIST_FILENAME].content;
   if(content){userStates=Object.assign({},userStates,JSON.parse(content));saveLocalStates();}
 }
 async function saveToGist(){await gistRequest('PATCH','/gists/'+gistId,{files:{[GIST_FILENAME]:{content:JSON.stringify(userStates)}}});}
@@ -302,170 +302,229 @@ async function connect(token){
   }catch(e){ghToken='';gistId='';errEl.textContent='Error: '+e.message;setSyncUI('error','Sync error');btn.disabled=false;btn.textContent='Connect';}
 }
 function disconnect(){ghToken='';gistId='';lsSet(LS_TOKEN,'');lsSet(LS_GIST,'');setSyncUI('','Sync off');}
-function setUserStatus(id,status){
-  userStates[id]=status;saveLocalStates();
-  if(ghToken&&gistId){clearTimeout(saveTimer);setSyncUI('syncing','Saving…');saveTimer=setTimeout(()=>{saveToGist().then(()=>setSyncUI('connected','Synced · '+new Date().toLocaleTimeString())).catch(e=>setSyncUI('error','Sync error: '+e.message));},1500);}
-  renderCards(lastFiltered);
+function setUserStatus(id,newStatus){
+  userStates[id]=newStatus;saveLocalStates();
+  if(ghToken&&gistId){clearTimeout(saveTimer);setSyncUI('syncing','Saving…');saveTimer=setTimeout(function(){saveToGist().then(function(){setSyncUI('connected','Synced · '+new Date().toLocaleTimeString());}).catch(function(e){setSyncUI('error','Sync error: '+e.message);});},1500);}
+  renderCards(lastFiltered,false);
 }
 function getUserStatus(id){return userStates[id]||'new';}
 function buildPillFilter(containerId,values,onSelect){
   const container=document.getElementById(containerId);
-  [...container.querySelectorAll('.pill:not([data-val=""])')].forEach(el=>el.remove());
-  for(const val of [...values].sort()){
+  const existing=container.querySelectorAll('.pill:not([data-val=""])');
+  existing.forEach(function(el){el.remove();});
+  const allBtn=container.querySelector('.pill[data-val=""]');
+  allBtn.onclick=function(){container.querySelectorAll('.pill').forEach(function(b){b.classList.remove('active');});allBtn.classList.add('active');if(onSelect)onSelect('');onFilterChange();};
+  values.forEach(function(val){
     const btn=document.createElement('button');btn.className='pill';btn.dataset.val=val;btn.textContent=val;
-    btn.addEventListener('click',()=>{container.querySelectorAll('.pill').forEach(b=>b.classList.remove('active'));btn.classList.add('active');if(onSelect)onSelect(val);onFilterChange();});
+    btn.onclick=function(){container.querySelectorAll('.pill').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');if(onSelect)onSelect(val);onFilterChange();};
     container.appendChild(btn);
-  }
-  container.querySelector('.pill[data-val=""]').addEventListener('click',()=>{container.querySelectorAll('.pill').forEach(b=>b.classList.remove('active'));container.querySelector('.pill[data-val=""]').classList.add('active');if(onSelect)onSelect('');onFilterChange();});
+  });
 }
 function rebuildCityPills(selectedCountry){
-  const cities=new Set();
-  for(const r of allRestaurants){if(!selectedCountry||r.country===selectedCountry){if(r.city)cities.add(r.city);}}
+  const cities=[];
+  const seen=new Set();
+  for(var i=0;i<allRestaurants.length;i++){
+    const r=allRestaurants[i];
+    if((!selectedCountry||r.country===selectedCountry)&&r.city&&!seen.has(r.city)){seen.add(r.city);cities.push(r.city);}
+  }
+  cities.sort();
   buildPillFilter('cityFilter',cities,null);
-  document.querySelectorAll('#cityFilter .pill').forEach((b,i)=>b.classList.toggle('active',i===0));
+  const pills=document.querySelectorAll('#cityFilter .pill');
+  pills.forEach(function(b,i){b.classList.toggle('active',i===0);});
 }
 function populateFilters(restaurants){
-  const countries=new Set(),cuisines=new Set(),neighborhoods=new Set();
-  for(const r of restaurants){
-    if(r.country)countries.add(r.country);
-    for(const c of(r.cuisine||[]))if(c)cuisines.add(c);
-    if(r.neighborhood)neighborhoods.add(r.neighborhood);
+  const countries=[],cuisines=[],neighborhoods=[];
+  const cSet=new Set(),cuSet=new Set(),nSet=new Set();
+  for(var i=0;i<restaurants.length;i++){
+    const r=restaurants[i];
+    if(r.country&&!cSet.has(r.country)){cSet.add(r.country);countries.push(r.country);}
+    if(r.cuisine){r.cuisine.forEach(function(c){if(c&&!cuSet.has(c)){cuSet.add(c);cuisines.push(c);}});}
+    if(r.neighborhood&&!nSet.has(r.neighborhood)){nSet.add(r.neighborhood);neighborhoods.push(r.neighborhood);}
   }
+  countries.sort();cuisines.sort();neighborhoods.sort();
   const countrySelect=document.getElementById('filterCountry');
-  [...countries].sort().forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;countrySelect.appendChild(o);});
+  countries.forEach(function(c){const o=document.createElement('option');o.value=c;o.textContent=c;countrySelect.appendChild(o);});
   rebuildCityPills('');
   const cSelect=document.getElementById('filterCuisine');
-  [...cuisines].sort().forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;cSelect.appendChild(o);});
+  cuisines.forEach(function(c){const o=document.createElement('option');o.value=c;o.textContent=c;cSelect.appendChild(o);});
   const nSelect=document.getElementById('filterNeighborhood');
-  [...neighborhoods].sort().forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;nSelect.appendChild(o);});
-  document.getElementById('mastheadLeft').textContent=[...countries].sort().join(' · ')||'Restaurants';
+  neighborhoods.forEach(function(n){const o=document.createElement('option');o.value=n;o.textContent=n;nSelect.appendChild(o);});
+  document.getElementById('mastheadLeft').textContent=countries.join(' · ')||'Restaurants';
 }
 function getFilters(){
   return{
     country:document.getElementById('filterCountry').value,
-    city:document.querySelector('#cityFilter .pill.active')?.dataset.val||'',
+    city:(document.querySelector('#cityFilter .pill.active')||{dataset:{}}).dataset.val||'',
     search:document.getElementById('filterSearch').value.toLowerCase().trim(),
     cuisine:document.getElementById('filterCuisine').value,
     neighborhood:document.getElementById('filterNeighborhood').value,
-    price:document.querySelector('#priceFilter .pill.active')?.dataset.val||'',
+    price:(document.querySelector('#priceFilter .pill.active')||{dataset:{}}).dataset.val||'',
     minRating:parseFloat(document.getElementById('filterRating').value)||0,
-    status:document.querySelector('#statusFilter .pill.active')?.dataset.val||'',
+    status:(document.querySelector('#statusFilter .pill.active')||{dataset:{}}).dataset.val||'',
     sort:document.getElementById('filterSort').value,
-    source:document.getElementById('filterSource').value,
+    source:document.getElementById('filterSource').value
   };
 }
 function filteredRestaurants(){
   const f=getFilters();
-  return allRestaurants.filter(r=>{
-    const status=getUserStatus(r.id);
+  const result=allRestaurants.filter(function(r){
+    const st=getUserStatus(r.id);
     if(f.country&&r.country!==f.country)return false;
     if(f.city&&r.city!==f.city)return false;
-    if(f.status==='hide_dismissed'&&status==='dismissed')return false;
-    if(f.status&&f.status!=='hide_dismissed'&&status!==f.status)return false;
+    if(f.status==='hide_dismissed'&&st==='dismissed')return false;
+    if(f.status&&f.status!=='hide_dismissed'&&st!==f.status)return false;
     if(f.source&&r.source!==f.source)return false;
     if(f.price&&String(r.price_level)!==f.price)return false;
-    if(f.minRating&&r.rating<f.minRating)return false;
+    if(f.minRating&&(r.rating||0)<f.minRating)return false;
     if(f.cuisine&&!(r.cuisine||[]).includes(f.cuisine))return false;
     if(f.neighborhood&&r.neighborhood!==f.neighborhood)return false;
     if(f.search){
-      const h=[r.name,r.address,r.country,r.city,r.neighborhood,...(r.cuisine||[]),...(r.tags||[])].join(' ').toLowerCase();
+      const h=[r.name,r.address,r.country,r.city,r.neighborhood].concat(r.cuisine||[]).concat(r.tags||[]).join(' ').toLowerCase();
       if(!h.includes(f.search))return false;
     }
     return true;
-  }).sort((a,b)=>{
-    const s=getFilters().sort;
+  });
+  const s=f.sort;
+  result.sort(function(a,b){
     if(s==='rating')return(b.rating||0)-(a.rating||0);
     if(s==='newest')return(b.first_seen||'').localeCompare(a.first_seen||'');
     if(s==='name')return(a.name||'').localeCompare(b.name||'');
     if(s==='reviews')return(b.review_count||0)-(a.review_count||0);
     return 0;
   });
+  return result;
 }
-function priceDisplay(level){if(!level)return '';return '<span class="price-dots">'+'€'.repeat(level)+'<span style="color:var(--rule)">'+'€'.repeat(4-level)+'</span></span>';}
+function priceDisplay(level){
+  if(!level)return '';
+  var dots='';for(var i=0;i<level;i++)dots+='€';
+  var grey='';for(var i=0;i<4-level;i++)grey+='€';
+  return '<span class="price-dots">'+dots+'<span style="color:var(--rule)">'+grey+'</span></span>';
+}
+var SOURCE_LABELS={google_places:'Google Maps',openstreetmap:'OpenStreetMap',foursquare:'Foursquare',mapy_cz:'Mapy.cz',here:'HERE'};
 function sourceBadge(source){
-  const labels={google_places:'Google Maps',openstreetmap:'OpenStreetMap',foursquare:'Foursquare',mapy_cz:'Mapy.cz',here:'HERE'};
-  return `<span class="source-dot ${source}"></span>${labels[source]||source}`;
+  return '<span class="source-dot '+source+'"></span>'+(SOURCE_LABELS[source]||source);
 }
-function isNew(d){if(!d)return false;const c=new Date();c.setDate(c.getDate()-14);return new Date(d)>=c;}
-function formatDate(iso){if(!iso)return '';try{return new Date(iso).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch{return iso;}}
-function formatDateTime(iso){if(!iso)return '';try{return new Date(iso).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return iso;}}
+function isNew(d){if(!d)return false;var c=new Date();c.setDate(c.getDate()-14);return new Date(d)>=c;}
+function formatDate(iso){
+  if(!iso)return '';
+  try{return new Date(iso).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch(e){return iso;}
+}
+function formatDateTime(iso){
+  if(!iso)return '';
+  try{return new Date(iso).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}
+}
 function renderChangelog(entries){
-  if(!entries||!entries.length){document.getElementById('changelogBody').innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ink-faint)">No run history yet.</td></tr>';return;}
-  document.getElementById('changelogBody').innerHTML=entries.map(e=>{
-    const modeClass=e.mode==='bulk'?'bulk':'';
-    const dur=e.duration_s!=null?(e.duration_s<60?e.duration_s+'s':Math.round(e.duration_s/60)+'m'):'—';
-    return `<tr><td>${formatDateTime(e.run_at)}</td><td><span class="cl-mode ${modeClass}">${e.mode||'—'}</span></td><td>${e.cities_scanned??'—'}</td><td>${e.fetched_raw??'—'}</td><td class="cl-new">+${e.new??0}</td><td>${e.updated??'—'}</td><td>${e.total??'—'}</td><td>${dur}</td></tr>`;
+  if(!entries||!entries.length){
+    document.getElementById('changelogBody').innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ink-faint)">No run history yet.</td></tr>';
+    return;
+  }
+  document.getElementById('changelogBody').innerHTML=entries.map(function(e){
+    var modeClass=e.mode==='bulk'?'bulk':'';
+    var dur=e.duration_s!=null?(e.duration_s<60?e.duration_s+'s':Math.round(e.duration_s/60)+'m'):'—';
+    return '<tr><td>'+formatDateTime(e.run_at)+'</td><td><span class="cl-mode '+modeClass+'">'+(e.mode||'—')+'</span></td><td>'+(e.cities_scanned!=null?e.cities_scanned:'—')+'</td><td>'+(e.fetched_raw!=null?e.fetched_raw:'—')+'</td><td class="cl-new">+'+(e.new||0)+'</td><td>'+(e.updated!=null?e.updated:'—')+'</td><td>'+(e.total!=null?e.total:'—')+'</td><td>'+dur+'</td></tr>';
   }).join('');
 }
 function renderPagination(total,page,size){
-  const totalPages=Math.ceil(total/size)||1;
-  const pg=document.getElementById('pagination');
+  var totalPages=Math.ceil(total/size)||1;
+  var pg=document.getElementById('pagination');
   if(totalPages<=1){pg.innerHTML='';return;}
-  const range=[];
-  for(let i=1;i<=totalPages;i++){
+  var range=[];
+  for(var i=1;i<=totalPages;i++){
     if(i===1||i===totalPages||Math.abs(i-page)<=2)range.push(i);
     else if(range[range.length-1]!=='...')range.push('...');
   }
-  const startItem=(page-1)*size+1,endItem=Math.min(page*size,total);
-  pg.innerHTML=
-    `<button class="pg-btn" ${page===1?'disabled':''} onclick="goPage(${page-1})">‹ Prev</button>`+
-    range.map(r=>r==='...'?`<span class="pg-ellipsis">…</span>`:`<button class="pg-btn${r===page?' active':''}" onclick="goPage(${r})">${r}</button>`).join('')+
-    `<button class="pg-btn" ${page===totalPages?'disabled':''} onclick="goPage(${page+1})">Next ›</button>`+
-    `<span class="pg-info">${startItem}–${endItem} of ${total}</span>`;
+  var startItem=(page-1)*size+1,endItem=Math.min(page*size,total);
+  var html=(page===1?'<button class="pg-btn" disabled>&#8249; Prev</button>':'<button class="pg-btn" onclick="goPage('+(page-1)+')">&#8249; Prev</button>');
+  range.forEach(function(r){
+    if(r==='...')html+='<span class="pg-ellipsis">…</span>';
+    else if(r===page)html+='<button class="pg-btn active">'+r+'</button>';
+    else html+='<button class="pg-btn" onclick="goPage('+r+')">'+r+'</button>';
+  });
+  html+=(page===totalPages?'<button class="pg-btn" disabled>Next &#8250;</button>':'<button class="pg-btn" onclick="goPage('+(page+1)+')">Next &#8250;</button>');
+  html+='<span class="pg-info">'+startItem+'–'+endItem+' of '+total+'</span>';
+  pg.innerHTML=html;
 }
 function goPage(p){
   currentPage=p;
   renderCards(lastFiltered,false);
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function renderCards(restaurants,resetPage=true){
+function buildCardHtml(r,globalIndex){
+  var status=getUserStatus(r.id);
+  var link=r.google_maps_url||r.website||'#';
+  var cuisineTags=(r.cuisine||[]).slice(0,3).map(function(c){return '<span class="tag">'+c+'</span>';}).join('');
+  var neighborhoodTag=r.neighborhood?'<span class="tag neighborhood">'+r.neighborhood+'</span>':'';
+  var cityTag=r.city?'<span class="tag city">'+r.city+'</span>':'';
+  var countryTag=r.country?'<span class="tag country">'+r.country+'</span>':'';
+  var sourceTag='<span class="tag source">'+sourceBadge(r.source)+'</span>';
+  var price=priceDisplay(r.price_level);
+  var newBadge=isNew(r.first_seen)?'<span class="badge-new">New</span>':'';
+  var hoursText='';
+  if(r.opening_hours&&r.opening_hours.weekday_text&&r.opening_hours.weekday_text.length){
+    var day=new Date().getDay();var idx=day===0?6:day-1;
+    hoursText='<div class="card-hours">Today: '+r.opening_hours.weekday_text[idx]+'</div>';
+  } else if(r.opening_hours&&r.opening_hours.raw){
+    hoursText='<div class="card-hours">'+r.opening_hours.raw+'</div>';
+  }
+  var wantActive=status==='want_to_visit'?'active-want':'';
+  var visitedActive=status==='visited'?'active-visited':'';
+  var dismissActive=status==='dismissed'?'active-dismiss':'';
+  var wantNext=status==='want_to_visit'?'new':'want_to_visit';
+  var visitedNext=status==='visited'?'new':'visited';
+  var dismissNext=status==='dismissed'?'new':'dismissed';
+  var rating=r.rating?Number(r.rating):0;
+  var ratingHtml=rating
+    ?'<div class="rating-num">'+rating.toFixed(1)+'</div><div class="review-count">'+(r.review_count?Number(r.review_count).toLocaleString()+' reviews':'')+'</div>'
+    :'<div class="rating-num no-rating">—</div>';
+  return '<div class="card" data-id="'+r.id+'">'
+    +'<div class="card-num">'+(globalIndex+1)+'</div>'
+    +'<div class="card-body">'
+      +'<div class="card-name"><a href="'+link+'" target="_blank" rel="noopener">'+r.name+'</a></div>'
+      +'<div class="card-address">'+(r.address||'')+'</div>'
+      +'<div class="card-meta">'+cuisineTags+neighborhoodTag+cityTag+countryTag+price+sourceTag+'</div>'
+      +hoursText
+      +'<div class="card-actions">'
+        +'<button class="action-btn '+wantActive+'" onclick="setUserStatus(\'' +r.id+'\',\''+wantNext+'\')">★ Want to visit</button>'
+        +'<button class="action-btn '+visitedActive+'" onclick="setUserStatus(\'' +r.id+'\',\''+visitedNext+'\')">✓ Visited</button>'
+        +'<button class="action-btn '+dismissActive+'" onclick="setUserStatus(\'' +r.id+'\',\''+dismissNext+'\')">✕ Dismiss</button>'
+      +'</div>'
+    +'</div>'
+    +'<div class="card-right">'+ratingHtml+'<div class="first-seen">Added '+formatDate(r.first_seen)+'</div>'+newBadge+'</div>'
+    +'</div>';
+}
+function renderCards(restaurants,resetPage){
+  if(resetPage===undefined)resetPage=true;
   if(resetPage)currentPage=1;
   lastFiltered=restaurants;
-  const container=document.getElementById('cards'),statsText=document.getElementById('statsText');
+  var container=document.getElementById('cards');
+  var statsText=document.getElementById('statsText');
   if(!restaurants.length){
     container.innerHTML='<div class="empty-state"><p>No restaurants match your filters.</p></div>';
-    statsText.innerHTML='No results';
+    statsText.textContent='No results';
     document.getElementById('pagination').innerHTML='';
     return;
   }
-  const totalPages=Math.ceil(restaurants.length/pageSize);
+  var totalPages=Math.ceil(restaurants.length/pageSize);
   if(currentPage>totalPages)currentPage=totalPages;
-  const start=(currentPage-1)*pageSize,end=Math.min(start+pageSize,restaurants.length);
-  const pageItems=restaurants.slice(start,end);
-  statsText.innerHTML=`Showing <strong>${start+1}–${end}</strong> of <strong>${restaurants.length}</strong> results (${allRestaurants.length} total) · Updated ${formatDate(generatedAt.split('T')[0])}`;
-  container.innerHTML=pageItems.map((r,i)=>{
-    const globalIndex=start+i;
-    const status=getUserStatus(r.id),link=r.google_maps_url||r.website||'#';
-    const cuisineTags=(r.cuisine||[]).slice(0,3).map(c=>`<span class="tag">${c}</span>`).join('');
-    const neighborhoodTag=r.neighborhood?`<span class="tag neighborhood">${r.neighborhood}</span>`:'';
-    const cityTag=r.city?`<span class="tag city">${r.city}</span>`:'';
-    const countryTag=r.country?`<span class="tag country">${r.country}</span>`:'';
-    const sourceTag=`<span class="tag source">${sourceBadge(r.source)}</span>`;
-    const price=priceDisplay(r.price_level);
-    const newBadge=isNew(r.first_seen)?'<span class="badge-new">New</span>':'';
-    const hoursText=r.opening_hours?.weekday_text?.length
-      ?`<div class="card-hours">Today: ${r.opening_hours.weekday_text[new Date().getDay()===0?6:new Date().getDay()-1]}</div>`
-      :(r.opening_hours?.raw?`<div class="card-hours">${r.opening_hours.raw}</div>`:'');
-    const wantActive=status==='want_to_visit'?'active-want':'';
-    const visitedActive=status==='visited'?'active-visited':'';
-    const dismissActive=status==='dismissed'?'active-dismiss':'';
-    const ratingHtml=r.rating
-      ?`<div class="rating-num">${r.rating.toFixed(1)}</div><div class="review-count">${r.review_count?r.review_count.toLocaleString()+' reviews':''}</div>`
-      :`<div class="rating-num no-rating">—</div>`;
-    return `<div class="card" data-id="${r.id}"><div class="card-num">${globalIndex+1}</div><div class="card-body"><div class="card-name"><a href="${link}" target="_blank" rel="noopener">${r.name}</a></div><div class="card-address">${r.address}</div><div class="card-meta">${cuisineTags}${neighborhoodTag}${cityTag}${countryTag}${price}${sourceTag}</div>${hoursText}<div class="card-actions"><button class="action-btn ${wantActive}" onclick="setUserStatus('${r.id}','${status==='want_to_visit'?'new':'want_to_visit}')"> Want to visit</button><button class="action-btn ${visitedActive}" onclick="setUserStatus('${r.id}','${status==='visited'?'new':'visited'}')">✓ Visited</button><button class="action-btn ${dismissActive}" onclick="setUserStatus('${r.id}','${status==='dismissed'?'new':'dismissed'}')">✕ Dismiss</button></div></div><div class="card-right">${ratingHtml}<div class="first-seen">Added ${formatDate(r.first_seen)}</div>${newBadge}</div></div>`;
-  }).join('');
+  var start=(currentPage-1)*pageSize;
+  var end=Math.min(start+pageSize,restaurants.length);
+  var pageItems=restaurants.slice(start,end);
+  statsText.innerHTML='Showing <strong>'+(start+1)+'–'+end+'</strong> of <strong>'+restaurants.length+'</strong> results ('+allRestaurants.length+' total) · Updated '+formatDate(generatedAt.split('T')[0]);
+  var html='';
+  for(var i=0;i<pageItems.length;i++){html+=buildCardHtml(pageItems[i],start+i);}
+  container.innerHTML=html;
   renderPagination(restaurants.length,currentPage,pageSize);
 }
 function onFilterChange(){renderCards(filteredRestaurants());}
-document.querySelectorAll('.page-size-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
+document.querySelectorAll('.page-size-btn').forEach(function(btn){
+  btn.addEventListener('click',function(){
     pageSize=parseInt(btn.dataset.size);
-    document.querySelectorAll('.page-size-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.page-size-btn').forEach(function(b){b.classList.remove('active');});
     btn.classList.add('active');
     renderCards(lastFiltered.length?lastFiltered:filteredRestaurants());
   });
 });
-document.getElementById('filterCountry').addEventListener('change',()=>{
+document.getElementById('filterCountry').addEventListener('change',function(){
   rebuildCityPills(document.getElementById('filterCountry').value);
   onFilterChange();
 });
@@ -475,12 +534,12 @@ document.getElementById('filterNeighborhood').addEventListener('change',onFilter
 document.getElementById('filterRating').addEventListener('input',onFilterChange);
 document.getElementById('filterSort').addEventListener('change',onFilterChange);
 document.getElementById('filterSource').addEventListener('change',onFilterChange);
-['priceFilter','statusFilter'].forEach(id=>{
-  document.querySelectorAll(`#${id} .pill`).forEach(btn=>{
-    btn.addEventListener('click',()=>{document.querySelectorAll(`#${id} .pill`).forEach(b=>b.classList.remove('active'));btn.classList.add('active');onFilterChange();});
+['priceFilter','statusFilter'].forEach(function(id){
+  document.querySelectorAll('#'+id+' .pill').forEach(function(btn){
+    btn.addEventListener('click',function(){document.querySelectorAll('#'+id+' .pill').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');onFilterChange();});
   });
 });
-document.getElementById('btnReset').addEventListener('click',()=>{
+document.getElementById('btnReset').addEventListener('click',function(){
   document.getElementById('filterCountry').value='';
   document.getElementById('filterSearch').value='';
   document.getElementById('filterCuisine').value='';
@@ -488,43 +547,43 @@ document.getElementById('btnReset').addEventListener('click',()=>{
   document.getElementById('filterRating').value='0';
   document.getElementById('filterSort').value='rating';
   document.getElementById('filterSource').value='';
-  ['cityFilter','priceFilter','statusFilter'].forEach(id=>{
-    document.querySelectorAll(`#${id} .pill`).forEach((b,i)=>b.classList.toggle('active',i===0));
+  ['cityFilter','priceFilter','statusFilter'].forEach(function(id){
+    document.querySelectorAll('#'+id+' .pill').forEach(function(b,i){b.classList.toggle('active',i===0);});
   });
   rebuildCityPills('');onFilterChange();
 });
-document.getElementById('btnChangelog').addEventListener('click',()=>{
-  const panel=document.getElementById('changelogPanel');
+document.getElementById('btnChangelog').addEventListener('click',function(){
+  var panel=document.getElementById('changelogPanel');
   panel.classList.toggle('open');
   document.getElementById('btnChangelog').textContent=panel.classList.contains('open')?'Hide history':'Run history';
 });
-document.getElementById('btnSyncToggle').addEventListener('click',()=>{
-  const panel=document.getElementById('syncPanel'),isOpen=panel.classList.contains('open');
+document.getElementById('btnSyncToggle').addEventListener('click',function(){
+  var panel=document.getElementById('syncPanel'),isOpen=panel.classList.contains('open');
   panel.classList.toggle('open',!isOpen);
   document.getElementById('btnSyncToggle').textContent=isOpen?'Enable sync':'Cancel';
 });
 document.getElementById('btnDisconnect').addEventListener('click',disconnect);
-document.getElementById('btnConnect').addEventListener('click',()=>{
-  const token=document.getElementById('tokenInput').value.trim();
+document.getElementById('btnConnect').addEventListener('click',function(){
+  var token=document.getElementById('tokenInput').value.trim();
   if(!token){document.getElementById('syncErrorMsg').textContent='Please enter a token.';return;}
   connect(token);
 });
-document.getElementById('tokenInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btnConnect').click();});
+document.getElementById('tokenInput').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('btnConnect').click();});
 loadLocalStates();
-const savedToken=lsGet(LS_TOKEN),savedGist=lsGet(LS_GIST);
+var savedToken=lsGet(LS_TOKEN),savedGist=lsGet(LS_GIST);
 if(savedToken&&savedGist){
   ghToken=savedToken;gistId=savedGist;setSyncUI('syncing','Loading sync…');
-  loadFromGist().then(()=>{setSyncUI('connected','Synced');renderCards(filteredRestaurants());}).catch(()=>{setSyncUI('error','Sync error — reconnect');ghToken='';gistId='';});
+  loadFromGist().then(function(){setSyncUI('connected','Synced');renderCards(filteredRestaurants());}).catch(function(){setSyncUI('error','Sync error — reconnect');ghToken='';gistId='';});
 }
-fetch(DATA_URL).then(r=>r.json()).then(data=>{
+fetch(DATA_URL).then(function(r){return r.json();}).then(function(data){
   allRestaurants=data.restaurants||[];generatedAt=data.generated_at||'';
   document.getElementById('mastheadDate').textContent=formatDate(generatedAt.split('T')[0]);
-  const dv=data.data_version||1,sv=data.schema_version||1;
-  document.getElementById('footerVersion').textContent=`data v${dv} · schema v${sv}`;
-  document.getElementById('footerMeta').textContent=`${allRestaurants.length.toLocaleString()} restaurants`;
+  var dv=data.data_version||1,sv=data.schema_version||1;
+  document.getElementById('footerVersion').textContent='data v'+dv+' · schema v'+sv;
+  document.getElementById('footerMeta').textContent=allRestaurants.length.toLocaleString()+' restaurants';
   renderChangelog(data.changelog||[]);
   populateFilters(allRestaurants);renderCards(filteredRestaurants());
-}).catch(err=>{
+}).catch(function(err){
   document.getElementById('cards').innerHTML='<div class="empty-state"><p>Could not load restaurant data. '+err.message+'</p></div>';
 });
 </script>
