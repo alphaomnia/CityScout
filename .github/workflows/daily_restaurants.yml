@@ -40,6 +40,7 @@ jobs:
         env:
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
           FOURSQUARE_API_KEY: ${{ secrets.FOURSQUARE_API_KEY }}
+          MAPY_CZ_API_KEY: ${{ secrets.MAPY_CZ_API_KEY }}
         run: |
           if [ "${{ github.event.inputs.initial_scan }}" = "true" ]; then
             python restaurants_main.py --initial-scan

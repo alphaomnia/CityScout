@@ -37,6 +37,7 @@ def main() -> int:
     api_keys = {
         "google_places": os.environ.get("GOOGLE_PLACES_API_KEY", ""),
         "foursquare": os.environ.get("FOURSQUARE_API_KEY", ""),
+        "mapy_cz": os.environ.get("MAPY_CZ_API_KEY", ""),
         "openstreetmap": "",
     }
 

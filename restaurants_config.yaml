@@ -2,6 +2,7 @@
 
 adapters:
   - openstreetmap
+  - mapy_cz
   - foursquare
   - google_places
 
