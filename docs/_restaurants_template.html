@@ -60,8 +60,13 @@
     .btn-reset { font-family: 'Inter', sans-serif; font-size: 12px; padding: 6px 14px; border: 1px solid var(--rule); border-radius: 4px; cursor: pointer; background: transparent; color: var(--ink-mid); }
     .btn-reset:hover { border-color: var(--ink-mid); color: var(--ink); }
     .page { max-width: 1280px; margin: 0 auto; padding: 16px 40px 80px; position: relative; z-index: 1; }
-    .stats-bar { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--ink-faint); padding: 8px 0 16px; border-bottom: 1px solid var(--rule); margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap; }
+    .stats-bar { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--ink-faint); padding: 8px 0 16px; border-bottom: 1px solid var(--rule); margin-bottom: 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
     .stats-bar strong { color: var(--ink-mid); }
+    .page-size-group { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    .page-size-group span { font-size: 11px; color: var(--ink-faint); }
+    .page-size-btn { font-family: 'Inter', sans-serif; font-size: 11px; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 3px; cursor: pointer; background: transparent; color: var(--ink-faint); }
+    .page-size-btn.active { background: var(--ink); color: white; border-color: var(--ink); }
+    .page-size-btn:hover:not(.active) { border-color: var(--ink-mid); color: var(--ink-mid); }
     .cards { display: flex; flex-direction: column; }
     .card { display: grid; grid-template-columns: 48px 1fr auto; gap: 0 20px; padding: 18px 0; border-bottom: 1px solid var(--rule); align-items: start; }
     .card:last-child { border-bottom: none; }
@@ -97,6 +102,13 @@
     .source-dot.foursquare { background: #F94877; }
     .source-dot.mapy_cz { background: #FF6600; }
     .source-dot.here { background: #00AFAA; }
+    .pagination { display: flex; align-items: center; gap: 6px; justify-content: center; padding: 28px 0 12px; flex-wrap: wrap; font-family: 'Inter', sans-serif; }
+    .pg-btn { font-family: 'Inter', sans-serif; font-size: 12px; padding: 5px 12px; border: 1px solid var(--rule); border-radius: 4px; cursor: pointer; background: transparent; color: var(--ink-mid); min-width: 36px; text-align: center; }
+    .pg-btn:hover:not(:disabled):not(.active) { border-color: var(--ink-mid); color: var(--ink); }
+    .pg-btn.active { background: var(--ink); color: white; border-color: var(--ink); cursor: default; }
+    .pg-btn:disabled { opacity: .35; cursor: default; }
+    .pg-ellipsis { font-size: 12px; color: var(--ink-faint); padding: 0 4px; }
+    .pg-info { font-size: 11px; color: var(--ink-faint); margin: 0 8px; }
     .site-footer { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--ink-faint); border-top: 1px solid var(--rule); margin-top: 40px; padding: 20px 0 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
     .footer-version { display: flex; align-items: center; gap: 10px; }
     .version-badge { font-size: 11px; background: var(--paper); border: 1px solid var(--rule); border-radius: 3px; padding: 2px 8px; color: var(--ink-mid); font-family: 'Inter', sans-serif; }
@@ -119,6 +131,7 @@
       .card { grid-template-columns: 36px 1fr; }
       .card-right { display: none; }
       .filter-bar { flex-direction: column; }
+      .page-size-group { margin-left: 0; }
     }
   </style>
 </head>
@@ -219,8 +232,17 @@
   </div>
 </div>
 <div class="page">
-  <div class="stats-bar" id="statsBar">Loading…</div>
+  <div class="stats-bar" id="statsBar">
+    <span id="statsText">Loading…</span>
+    <div class="page-size-group">
+      <span>Show</span>
+      <button class="page-size-btn active" data-size="50">50</button>
+      <button class="page-size-btn" data-size="100">100</button>
+      <button class="page-size-btn" data-size="200">200</button>
+    </div>
+  </div>
   <div class="cards" id="cards"></div>
+  <div class="pagination" id="pagination"></div>
   <footer class="site-footer">
     <div class="footer-version">
       <span id="footerVersion" class="version-badge">v—</span>
@@ -238,6 +260,7 @@
 <script>
 const DATA_URL='restaurants.json',LS_KEY='restaurants_user_states_v1',LS_TOKEN='cityscout_gh_token',LS_GIST='cityscout_gist_id',GIST_FILENAME='cityscout-restaurant-states.json';
 let allRestaurants=[],userStates={},generatedAt='',ghToken='',gistId='',saveTimer=null;
+let currentPage=1,pageSize=50,lastFiltered=[];
 function lsGet(k){try{return localStorage.getItem(k)||'';}catch{return '';}}
 function lsSet(k,v){try{localStorage.setItem(k,v);}catch{}}
 function loadLocalStates(){try{userStates=JSON.parse(lsGet(LS_KEY)||'{}');}catch{userStates={};}}
@@ -282,7 +305,7 @@ function disconnect(){ghToken='';gistId='';lsSet(LS_TOKEN,'');lsSet(LS_GIST,'');
 function setUserStatus(id,status){
   userStates[id]=status;saveLocalStates();
   if(ghToken&&gistId){clearTimeout(saveTimer);setSyncUI('syncing','Saving…');saveTimer=setTimeout(()=>{saveToGist().then(()=>setSyncUI('connected','Synced · '+new Date().toLocaleTimeString())).catch(e=>setSyncUI('error','Sync error: '+e.message));},1500);}
-  renderCards(filteredRestaurants());
+  renderCards(lastFiltered);
 }
 function getUserStatus(id){return userStates[id]||'new';}
 function buildPillFilter(containerId,values,onSelect){
@@ -371,23 +394,47 @@ function renderChangelog(entries){
   document.getElementById('changelogBody').innerHTML=entries.map(e=>{
     const modeClass=e.mode==='bulk'?'bulk':'';
     const dur=e.duration_s!=null?(e.duration_s<60?e.duration_s+'s':Math.round(e.duration_s/60)+'m'):'—';
-    return `<tr>
-      <td>${formatDateTime(e.run_at)}</td>
-      <td><span class="cl-mode ${modeClass}">${e.mode||'—'}</span></td>
-      <td>${e.cities_scanned??'—'}</td>
-      <td>${e.fetched_raw??'—'}</td>
-      <td class="cl-new">+${e.new??0}</td>
-      <td>${e.updated??'—'}</td>
-      <td>${e.total??'—'}</td>
-      <td>${dur}</td>
-    </tr>`;
+    return `<tr><td>${formatDateTime(e.run_at)}</td><td><span class="cl-mode ${modeClass}">${e.mode||'—'}</span></td><td>${e.cities_scanned??'—'}</td><td>${e.fetched_raw??'—'}</td><td class="cl-new">+${e.new??0}</td><td>${e.updated??'—'}</td><td>${e.total??'—'}</td><td>${dur}</td></tr>`;
   }).join('');
 }
-function renderCards(restaurants){
-  const container=document.getElementById('cards'),stats=document.getElementById('statsBar');
-  if(!restaurants.length){container.innerHTML='<div class="empty-state"><p>No restaurants match your filters.</p></div>';stats.innerHTML='No results';return;}
-  stats.innerHTML=`Showing <strong>${restaurants.length}</strong> of <strong>${allRestaurants.length}</strong> restaurants · Updated ${formatDate(generatedAt.split('T')[0])}`;
-  container.innerHTML=restaurants.map((r,i)=>{
+function renderPagination(total,page,size){
+  const totalPages=Math.ceil(total/size)||1;
+  const pg=document.getElementById('pagination');
+  if(totalPages<=1){pg.innerHTML='';return;}
+  const range=[];
+  for(let i=1;i<=totalPages;i++){
+    if(i===1||i===totalPages||Math.abs(i-page)<=2)range.push(i);
+    else if(range[range.length-1]!=='...')range.push('...');
+  }
+  const startItem=(page-1)*size+1,endItem=Math.min(page*size,total);
+  pg.innerHTML=
+    `<button class="pg-btn" ${page===1?'disabled':''} onclick="goPage(${page-1})">‹ Prev</button>`+
+    range.map(r=>r==='...'?`<span class="pg-ellipsis">…</span>`:`<button class="pg-btn${r===page?' active':''}" onclick="goPage(${r})">${r}</button>`).join('')+
+    `<button class="pg-btn" ${page===totalPages?'disabled':''} onclick="goPage(${page+1})">Next ›</button>`+
+    `<span class="pg-info">${startItem}–${endItem} of ${total}</span>`;
+}
+function goPage(p){
+  currentPage=p;
+  renderCards(lastFiltered,false);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderCards(restaurants,resetPage=true){
+  if(resetPage)currentPage=1;
+  lastFiltered=restaurants;
+  const container=document.getElementById('cards'),statsText=document.getElementById('statsText');
+  if(!restaurants.length){
+    container.innerHTML='<div class="empty-state"><p>No restaurants match your filters.</p></div>';
+    statsText.innerHTML='No results';
+    document.getElementById('pagination').innerHTML='';
+    return;
+  }
+  const totalPages=Math.ceil(restaurants.length/pageSize);
+  if(currentPage>totalPages)currentPage=totalPages;
+  const start=(currentPage-1)*pageSize,end=Math.min(start+pageSize,restaurants.length);
+  const pageItems=restaurants.slice(start,end);
+  statsText.innerHTML=`Showing <strong>${start+1}–${end}</strong> of <strong>${restaurants.length}</strong> results (${allRestaurants.length} total) · Updated ${formatDate(generatedAt.split('T')[0])}`;
+  container.innerHTML=pageItems.map((r,i)=>{
+    const globalIndex=start+i;
     const status=getUserStatus(r.id),link=r.google_maps_url||r.website||'#';
     const cuisineTags=(r.cuisine||[]).slice(0,3).map(c=>`<span class="tag">${c}</span>`).join('');
     const neighborhoodTag=r.neighborhood?`<span class="tag neighborhood">${r.neighborhood}</span>`:'';
@@ -405,10 +452,19 @@ function renderCards(restaurants){
     const ratingHtml=r.rating
       ?`<div class="rating-num">${r.rating.toFixed(1)}</div><div class="review-count">${r.review_count?r.review_count.toLocaleString()+' reviews':''}</div>`
       :`<div class="rating-num no-rating">—</div>`;
-    return `<div class="card" data-id="${r.id}"><div class="card-num">${i+1}</div><div class="card-body"><div class="card-name"><a href="${link}" target="_blank" rel="noopener">${r.name}</a></div><div class="card-address">${r.address}</div><div class="card-meta">${cuisineTags}${neighborhoodTag}${cityTag}${countryTag}${price}${sourceTag}</div>${hoursText}<div class="card-actions"><button class="action-btn ${wantActive}" onclick="setUserStatus('${r.id}','${status==='want_to_visit'?'new':'want_to_visit}')"> Want to visit</button><button class="action-btn ${visitedActive}" onclick="setUserStatus('${r.id}','${status==='visited'?'new':'visited'}')">✓ Visited</button><button class="action-btn ${dismissActive}" onclick="setUserStatus('${r.id}','${status==='dismissed'?'new':'dismissed'}')">✕ Dismiss</button></div></div><div class="card-right">${ratingHtml}<div class="first-seen">Added ${formatDate(r.first_seen)}</div>${newBadge}</div></div>`;
+    return `<div class="card" data-id="${r.id}"><div class="card-num">${globalIndex+1}</div><div class="card-body"><div class="card-name"><a href="${link}" target="_blank" rel="noopener">${r.name}</a></div><div class="card-address">${r.address}</div><div class="card-meta">${cuisineTags}${neighborhoodTag}${cityTag}${countryTag}${price}${sourceTag}</div>${hoursText}<div class="card-actions"><button class="action-btn ${wantActive}" onclick="setUserStatus('${r.id}','${status==='want_to_visit'?'new':'want_to_visit}')"> Want to visit</button><button class="action-btn ${visitedActive}" onclick="setUserStatus('${r.id}','${status==='visited'?'new':'visited'}')">✓ Visited</button><button class="action-btn ${dismissActive}" onclick="setUserStatus('${r.id}','${status==='dismissed'?'new':'dismissed'}')">✕ Dismiss</button></div></div><div class="card-right">${ratingHtml}<div class="first-seen">Added ${formatDate(r.first_seen)}</div>${newBadge}</div></div>`;
   }).join('');
+  renderPagination(restaurants.length,currentPage,pageSize);
 }
 function onFilterChange(){renderCards(filteredRestaurants());}
+document.querySelectorAll('.page-size-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    pageSize=parseInt(btn.dataset.size);
+    document.querySelectorAll('.page-size-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    renderCards(lastFiltered.length?lastFiltered:filteredRestaurants());
+  });
+});
 document.getElementById('filterCountry').addEventListener('change',()=>{
   rebuildCityPills(document.getElementById('filterCountry').value);
   onFilterChange();
