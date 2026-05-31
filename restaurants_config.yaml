@@ -1,10 +1,60 @@
 # Multi-country Restaurant Aggregator — Runtime Configuration
 
 cities:
+  # Czech Republic
   - prague
   - brno
+  # Slovakia
   - bratislava
   - kosice
+  # Germany
+  - berlin
+  - munich
+  - hamburg
+  - frankfurt
+  - cologne
+  - stuttgart
+  - dusseldorf
+  # Austria
+  - vienna
+  - graz
+  - salzburg
+  - innsbruck
+  # Italy
+  - rome
+  - milan
+  - florence
+  - venice
+  - naples
+  - bologna
+  - turin
+  # Malta
+  - malta
+  # Netherlands
+  - amsterdam
+  - rotterdam
+  - the_hague
+  - utrecht
+  # Denmark
+  - copenhagen
+  - aarhus
+  # Spain
+  - madrid
+  - barcelona
+  - seville
+  - valencia
+  - bilbao
+  - malaga
+  # Portugal
+  - lisbon
+  - porto
+  - faro
+  # Poland
+  - warsaw
+  - krakow
+  - wroclaw
+  - gdansk
+  - poznan
 
 adapters:
   - openstreetmap
