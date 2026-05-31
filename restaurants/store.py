@@ -49,6 +49,12 @@ class RestaurantStore:
                 self._restaurants[listing.id] = listing
                 new_listings.append(listing)
             else:
+                # Always overwrite city/country so old entries get backfilled
+                for attr in ("country", "city"):
+                    new_val = getattr(listing, attr)
+                    if new_val:
+                        object.__setattr__(existing, attr, new_val)
+                # Update enrichment fields only when new value is present
                 for attr in (
                     "name", "address", "neighborhood", "cuisine", "price_level",
                     "rating", "review_count", "phone", "website", "google_maps_url",
