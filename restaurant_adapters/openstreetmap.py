@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from restaurants.config import OVERPASS_URL
+from restaurants.config import OVERPASS_URL, PRAGUE_BBOX
 from restaurants.models import RestaurantListing
 from .base import BaseRestaurantAdapter
 
 OVERPASS_QUERY = """
 [out:json][timeout:90];
-area["name"="Praha"]["admin_level"="8"]->.a;
 (
-  node["amenity"="restaurant"](area.a);
-  way["amenity"="restaurant"](area.a);
-  relation["amenity"="restaurant"](area.a);
+  node["amenity"="restaurant"]({south},{west},{north},{east});
+  way["amenity"="restaurant"]({south},{west},{north},{east});
+  relation["amenity"="restaurant"]({south},{west},{north},{east});
 );
 out body center;
 """
@@ -38,7 +37,12 @@ class OpenStreetMapAdapter(BaseRestaurantAdapter):
             print(f"[{self.name}] Skipping in incremental mode")
             return []
 
-        resp = self._post(OVERPASS_URL, data={"data": OVERPASS_QUERY})
+        bbox = PRAGUE_BBOX
+        query = OVERPASS_QUERY.format(
+            south=bbox["south"], west=bbox["west"],
+            north=bbox["north"], east=bbox["east"],
+        )
+        resp = self._post(OVERPASS_URL, data={"data": query})
         if not resp:
             return []
 
