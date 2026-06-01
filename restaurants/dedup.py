@@ -5,7 +5,7 @@ from difflib import SequenceMatcher
 
 from .models import RestaurantListing
 
-SOURCE_PRIORITY = ["google_places", "foursquare", "openstreetmap"]
+SOURCE_PRIORITY = ["openstreetmap", "findsmiley"]
 SIMILARITY_THRESHOLD = 0.85
 
 

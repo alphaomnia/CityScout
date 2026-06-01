@@ -58,8 +58,7 @@ cities:
 
 adapters:
   - openstreetmap
-  - here
-  - foursquare
+  - findsmiley
 
 store:
   path: docs/restaurants.json

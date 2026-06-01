@@ -333,12 +333,4 @@ CITIES = {
 NEIGHBORHOODS = PRAGUE_NEIGHBORHOODS
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
-FOURSQUARE_BASE = "https://api.foursquare.com/v3"
-GOOGLE_PLACES_BASE = "https://maps.googleapis.com/maps/api/place"
 
-GOOGLE_DETAIL_FIELDS_BASIC = (
-    "name,formatted_address,geometry,place_id,types,"
-    "address_components,permanently_closed"
-)
-GOOGLE_DETAIL_FIELDS_CONTACT = "formatted_phone_number,website,opening_hours"
-GOOGLE_DETAIL_FIELDS_ATMOSPHERE = "price_level,rating,user_ratings_total,photos"
