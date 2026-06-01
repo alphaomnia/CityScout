@@ -79,7 +79,7 @@ class FoursquareAdapter(BaseRestaurantAdapter):
                     print(f"[{self.name}] 429 rate limit on attempt {attempt + 1}")
                     continue
                 if resp.status_code == 401:
-                    print(f"[{self.name}] 401 Unauthorized — daily quota likely exhausted")
+                    print(f"[{self.name}] 401 Unauthorized — invalid API key or quota exhausted")
                     return None
                 resp.raise_for_status()
                 return resp
