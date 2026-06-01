@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CityScout · Restaurants</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -268,7 +269,7 @@
   </div>
 </div>
 <script>
-const DATA_URL='restaurants.json',LS_KEY='restaurants_user_states_v1',LS_TOKEN='cityscout_gh_token',LS_GIST='cityscout_gist_id',GIST_FILENAME='cityscout-restaurant-states.json';
+const DATA_URL='restaurants.json?v='+Date.now(),LS_KEY='restaurants_user_states_v1',LS_TOKEN='cityscout_gh_token',LS_GIST='cityscout_gist_id',GIST_FILENAME='cityscout-restaurant-states.json';
 let allRestaurants=[],userStates={},generatedAt='',ghToken='',gistId='',saveTimer=null;
 let currentPage=1,pageSize=50,lastFiltered=[];
 function lsGet(k){try{return localStorage.getItem(k)||'';}catch{return '';}}

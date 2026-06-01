@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CityScout · Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -144,7 +145,7 @@
   </footer>
 </div>
 <script>
-const DATA_URL='restaurants.json';
+const DATA_URL='restaurants.json?v='+Date.now();
 const CITY_COORDS={
   'Prague':[50.0755,14.4378],'Brno':[49.1951,16.6068],
   'Bratislava':[48.1486,17.1077],'Košice':[48.7164,21.2611],
