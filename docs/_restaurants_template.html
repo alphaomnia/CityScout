@@ -170,7 +170,10 @@
         <h1>CityScout Eats</h1>
         <div class="subtitle">Restaurant Discovery · Updated Daily</div>
       </div>
-      <div class="right" id="mastheadDate">—</div>
+      <div class="right">
+        <span id="mastheadDate">—</span>
+        <span id="headerVersion" class="version-badge" style="margin-left:8px;">v—</span>
+      </div>
     </div>
     <div class="filter-bar">
       <div class="filter-group">
@@ -429,7 +432,7 @@ document.getElementById('tokenInput').addEventListener('keydown',function(e){if(
 loadLocalStates();
 var savedToken=lsGet(LS_TOKEN),savedGist=lsGet(LS_GIST);
 if(savedToken&&savedGist){ghToken=savedToken;gistId=savedGist;setSyncUI('syncing','Loading sync…');loadFromGist().then(function(){setSyncUI('connected','Synced');renderCards(filteredRestaurants());}).catch(function(){setSyncUI('error','Sync error — reconnect');ghToken='';gistId='';});}
-fetch(DATA_URL).then(function(r){return r.json();}).then(function(data){allRestaurants=data.restaurants||[];generatedAt=data.generated_at||'';document.getElementById('mastheadDate').textContent=formatDate(generatedAt.split('T')[0]);var dv=data.data_version||1,sv=data.schema_version||1;document.getElementById('footerVersion').textContent='data v'+dv+' · schema v'+sv;document.getElementById('footerMeta').textContent=allRestaurants.length.toLocaleString()+' restaurants';renderChangelog(data.changelog||[]);populateFilters(allRestaurants);renderCards(filteredRestaurants());}).catch(function(err){document.getElementById('cards').innerHTML='<div class="empty-state"><p>Could not load restaurant data. '+err.message+'</p></div>';});
+fetch(DATA_URL).then(function(r){return r.json();}).then(function(data){allRestaurants=data.restaurants||[];generatedAt=data.generated_at||'';document.getElementById('mastheadDate').textContent=formatDate(generatedAt.split('T')[0]);var dv=data.data_version||1,sv=data.schema_version||1;var vtext='data v'+dv+' · schema v'+sv;document.getElementById('footerVersion').textContent=vtext;document.getElementById('headerVersion').textContent=vtext;document.getElementById('footerMeta').textContent=allRestaurants.length.toLocaleString()+' restaurants';renderChangelog(data.changelog||[]);populateFilters(allRestaurants);renderCards(filteredRestaurants());}).catch(function(err){document.getElementById('cards').innerHTML='<div class="empty-state"><p>Could not load restaurant data. '+err.message+'</p></div>';});
 </script>
 </body>
 </html>
