@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -59,6 +60,8 @@ def main() -> int:
                 continue
             adapter = cls(api_key=api_keys.get(adapter_name, ""), mode=mode, city_config=city_cfg)
             incoming.extend(adapter._safe_fetch())
+        if mode == "bulk":
+            time.sleep(3)  # polite pause between cities to avoid Overpass rate limits
 
     print(f"Fetched {len(incoming)} raw listings across all sources")
     deduplicated = deduplicate(incoming)

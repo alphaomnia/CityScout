@@ -44,6 +44,10 @@ class FindSmileyAdapter(BaseRestaurantAdapter):
     name = "findsmiley"
 
     def fetch(self) -> list[RestaurantListing]:
+        if self.mode == "incremental":
+            print(f"[{self.name}] Skipping in incremental mode")
+            return []
+
         xml_bytes = self._download_xml()
         if xml_bytes is None:
             print(f"[{self.name}] Could not download dataset, skipping")
