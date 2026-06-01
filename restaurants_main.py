@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,10 +38,6 @@ def main() -> int:
     print(f"Loaded {existing_count} existing restaurants from store")
 
     api_keys = {
-        "google_places": os.environ.get("GOOGLE_PLACES_API_KEY", ""),
-        "foursquare": os.environ.get("FOURSQUARE_API_KEY", ""),
-        "mapy_cz": os.environ.get("MAPY_CZ_API_KEY", ""),
-        "here": os.environ.get("HERE_API_KEY", ""),
         "openstreetmap": "",
     }
 

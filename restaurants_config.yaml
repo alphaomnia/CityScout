@@ -58,8 +58,6 @@ cities:
 
 adapters:
   - openstreetmap
-  - here
-  # foursquare: disabled — /v3/places/search returned 410 Gone (free tier removed 2024)
 
 store:
   path: docs/restaurants.json
