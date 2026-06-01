@@ -26,17 +26,27 @@ def load_config() -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Restaurant Aggregator")
     parser.add_argument("--initial-scan", action="store_true")
+    parser.add_argument("--resume", action="store_true",
+                        help="Bulk scan only cities with no existing data (safe to re-run after timeout)")
     args = parser.parse_args()
-    mode = "bulk" if args.initial_scan else "incremental"
+    mode = "bulk" if (args.initial_scan or args.resume) else "incremental"
 
     run_start = datetime.now(timezone.utc)
-    print(f"=== Restaurant Aggregator | mode={mode} ===")
+    print(f"=== Restaurant Aggregator | mode={mode} resume={args.resume} ===")
     config = load_config()
 
     store_path = ROOT / config["store"]["path"]
     store = RestaurantStore(store_path)
     existing_count = len(store.all())
     print(f"Loaded {existing_count} existing restaurants from store")
+
+    # Build set of cities that already have data (used by --resume)
+    cities_with_data: set[str] = set()
+    if args.resume:
+        for r in store.all():
+            if r.city:
+                cities_with_data.add(r.city)
+        print(f"Cities already in store: {sorted(cities_with_data)}")
 
     api_keys = {
         "openstreetmap": "",
@@ -51,6 +61,11 @@ def main() -> int:
         if city_cfg is None:
             print(f"[main] Unknown city: {city_key!r}, skipping")
             continue
+
+        if args.resume and city_cfg["name"] in cities_with_data:
+            print(f"--- City: {city_cfg['name']} — already scanned, skipping ---")
+            continue
+
         cities_scanned.append(city_cfg["name"])
         print(f"--- City: {city_cfg['name']} ---")
         for adapter_name in adapters_used:

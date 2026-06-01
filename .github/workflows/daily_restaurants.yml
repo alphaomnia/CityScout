@@ -13,6 +13,14 @@ on:
         options:
           - "false"
           - "true"
+      resume_scan:
+        description: "Resume bulk scan — skips cities already in the store"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
   contents: write
@@ -23,7 +31,7 @@ env:
 jobs:
   aggregate:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 360
 
     steps:
       - uses: actions/checkout@v4.2.2
@@ -40,6 +48,8 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.initial_scan }}" = "true" ]; then
             python restaurants_main.py --initial-scan
+          elif [ "${{ github.event.inputs.resume_scan }}" = "true" ]; then
+            python restaurants_main.py --resume
           else
             python restaurants_main.py
           fi
