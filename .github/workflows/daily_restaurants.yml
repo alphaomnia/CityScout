@@ -56,10 +56,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
-            git stash
-            git pull --rebase origin main
-            git stash pop
-            git add docs/restaurants.json docs/restaurants.html
             git commit -m "chore: restaurant scan $(date -u +%Y-%m-%d)"
+            git pull --rebase origin main
             git push
           fi
