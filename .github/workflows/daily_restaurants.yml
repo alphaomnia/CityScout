@@ -45,6 +45,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run restaurant aggregator
+        env:
+          PYTHONUNBUFFERED: "1"
         run: |
           if [ "${{ github.event.inputs.initial_scan }}" = "true" ]; then
             python restaurants_main.py --initial-scan
