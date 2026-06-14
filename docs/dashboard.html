@@ -48,7 +48,7 @@
     .globe-wrap{position:relative;height:480px;border-radius:8px;overflow:hidden;background:radial-gradient(ellipse at center,#0d1b2a 0%,#050d14 60%,#000 100%);}
     .globe-wrap canvas{display:block;}
     .globe-tip{position:absolute;bottom:12px;right:14px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.3);pointer-events:none;}
-    #globeEl{width:100%;height:100%;}
+    #globeEl{width:100%;height:480px;}
     /* chart containers */
     .chart-wrap{position:relative;height:300px;}
     .chart-wrap-tall{position:relative;height:360px;}
@@ -227,6 +227,7 @@ fetch(DATA_URL).then(function(r){return r.json();}).then(function(data){
   });
 
   // --- 3D globe ---
+  setTimeout(function(){
   var globePoints=[];
   Object.keys(CITY_COORDS).forEach(function(city){
     var count=byCity[city]||0;
@@ -264,8 +265,8 @@ fetch(DATA_URL).then(function(r){return r.json();}).then(function(data){
     })
     .atmosphereColor('rgba(100,160,255,0.25)')
     .atmosphereAltitude(0.18)
-    .width(document.getElementById('globeEl').clientWidth||600)
-    .height(460);
+    .width(document.getElementById('globeEl').offsetWidth||700)
+    .height(480);
 
   // Point camera at Europe and auto-rotate
   globe.pointOfView({lat:48,lng:12,altitude:1.8},0);
@@ -276,6 +277,7 @@ fetch(DATA_URL).then(function(r){return r.json();}).then(function(data){
   // Pause rotation on hover
   document.getElementById('globeEl').addEventListener('mouseenter',function(){globe.controls().autoRotate=false;});
   document.getElementById('globeEl').addEventListener('mouseleave',function(){globe.controls().autoRotate=true;});
+  },100);
 
   // --- growth chart (from changelog, reversed so oldest first) ---
   var growthCtx=document.getElementById('growthChart').getContext('2d');
