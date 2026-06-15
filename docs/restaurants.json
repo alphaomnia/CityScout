@@ -1,9 +1,24 @@
 {
   "schema_version": 2,
-  "data_version": 19,
-  "generated_at": "2026-06-14T13:16:49.950799+00:00",
+  "data_version": 20,
+  "generated_at": "2026-06-15T20:18:03.295224+00:00",
   "count": 4000,
   "changelog": [
+    {
+      "run_at": "2026-06-15T20:18:03.290405+00:00",
+      "mode": "incremental",
+      "duration_s": 0,
+      "cities_scanned": 43,
+      "adapters": [
+        "openstreetmap",
+        "findsmiley"
+      ],
+      "fetched_raw": 0,
+      "after_dedup": 0,
+      "new": 0,
+      "updated": 0,
+      "total": 4000
+    },
     {
       "run_at": "2026-06-14T13:16:49.948303+00:00",
       "mode": "incremental",
