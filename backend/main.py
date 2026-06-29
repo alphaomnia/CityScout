@@ -3,13 +3,14 @@ CityScout · Green 1 API
 FastAPI backend — all six objects, candidate lifecycle, instrumentation.
 Run: uvicorn main:app --reload --port 8765
 """
-import json, sqlite3, uuid
+import csv, io, json, sqlite3, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 DB_PATH = Path(__file__).parent / "cityscout.db"
@@ -282,6 +283,226 @@ def update_candidate_status(candidate_id: str, body: CandidateStatusUpdate):
     updated = row_to_dict(db.execute("SELECT * FROM candidate WHERE candidate_id=?", (candidate_id,)).fetchone())
     db.close()
     return updated
+
+# ── CSV template download ────────────────────────────────────────────────────
+
+# Exact column order matching the Lovable/Supabase establishments export.
+CSV_COLUMNS = [
+    "id","name","description","category","tier","country","city","address",
+    "coordinates_lat","coordinates_lng","food_type","dining_type","seating",
+    "parking_available","surroundings","reviews","tags","image_url","status",
+    "created_by","created_at","updated_at","photos","status_tag","slug",
+]
+CSV_EXAMPLE = [
+    "", "My New Venue", "A neighbourhood gem worth knowing about.",
+    "Cafe", "Good", "Czech Republic", "Prague", "Holešovice, Prague 7",
+    "50.1023", "14.4456", "Coffee", "Drinks", "indoor",
+    "FALSE", "", "", '["Coffee","Brunch"]', "", "draft",
+    "", "", "", "[]", "unverified", "my-new-venue",
+]
+
+@app.get("/template.csv")
+def download_template():
+    buf = io.StringIO()
+    w   = csv.writer(buf)
+    w.writerow(CSV_COLUMNS)
+    w.writerow(CSV_EXAMPLE)
+    return StreamingResponse(
+        io.BytesIO(buf.getvalue().encode("utf-8-sig")),  # utf-8-sig = Excel-friendly BOM
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="cityscout-venue-template.csv"'},
+    )
+
+# ── CSV bulk import ──────────────────────────────────────────────────────────
+
+def _get_or_create_import_source(db, source_name: str) -> str:
+    row = db.execute("SELECT source_id FROM source WHERE source_name=?", (source_name,)).fetchone()
+    if row:
+        return row["source_id"]
+    sid = str(uuid.uuid4())
+    db.execute("""
+        INSERT INTO source
+          (source_id, source_name, source_type, source_origin,
+           approval_status, quality_grade, created_at)
+        VALUES (?,?,?,?,?,?,?)
+    """, (sid, source_name, "sheet", "web", "approved", "bronze", now()))
+    return sid
+
+@app.post("/import/csv")
+async def import_csv(file: UploadFile = File(...)):
+    raw   = await file.read()
+    text  = raw.decode("utf-8-sig")
+    rows  = list(csv.DictReader(io.StringIO(text)))
+
+    if not rows:
+        raise HTTPException(400, "CSV is empty or has no data rows")
+
+    db       = get_db()
+    source_id = _get_or_create_import_source(db, f"CSV import: {file.filename}")
+    run_id   = str(uuid.uuid4())
+    batch_id = str(uuid.uuid4())
+    created  = skipped = errors = 0
+    err_msgs = []
+
+    for row in rows:
+        # Strip BOM/whitespace from keys
+        row  = {k.strip().lstrip('﻿'): (v or '').strip() for k, v in row.items()}
+        name = row.get("name", "")
+        if not name:
+            skipped += 1
+            continue
+
+        city    = row.get("city", "Prague")
+        country = row.get("country", "Czech Republic")
+        slug    = row.get("slug", "") or name.lower().replace(" ", "-")
+
+        # Dedupe on canonical_name + city OR slug
+        dup = db.execute(
+            "SELECT candidate_id FROM candidate WHERE (canonical_name=? AND city=?) OR slug=?",
+            (name, city, slug)
+        ).fetchone()
+        if dup:
+            skipped += 1
+            continue
+
+        try:
+            tags_raw = row.get("tags", "[]")
+            try:   tags = json.loads(tags_raw)
+            except: tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+
+            photos_raw = row.get("photos", "[]")
+            try:   photos = json.loads(photos_raw)
+            except: photos = []
+
+            def _f(v):  # safe float
+                try: return float(v) or None
+                except: return None
+
+            cid = str(uuid.uuid4())
+            db.execute("""
+                INSERT INTO candidate
+                  (candidate_id, canonical_name, city, country, address,
+                   lat, lng, candidate_status, inclusion_status, publish_status,
+                   source_count, primary_source_id,
+                   category, food_type, dining_type, seating,
+                   description, image_url, tags, slug, tier,
+                   created_from, created_at, updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                cid, name, city, country,
+                row.get("address", ""),
+                _f(row.get("coordinates_lat")), _f(row.get("coordinates_lng")),
+                "stub", "undecided", "not_ready",
+                1, source_id,
+                row.get("category", ""), row.get("food_type", ""),
+                row.get("dining_type", ""), row.get("seating", ""),
+                row.get("description", ""), row.get("image_url", ""),
+                json.dumps(tags), slug, row.get("tier", ""),
+                "worker", now(), now(),
+            ))
+            db.execute("""
+                INSERT INTO source_claim
+                  (claim_id, source_id, raw_place_name, city, country,
+                   claimed_address, source_confidence, parse_confidence,
+                   candidate_id, poi_match_status, created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            """, (str(uuid.uuid4()), source_id, name, city, country,
+                  row.get("address",""), 0.7, 0.8, cid, "matched", now()))
+            db.execute("""
+                INSERT INTO decision_log
+                  (decision_id, candidate_id, previous_status, new_status,
+                   decision_type, reason, decider, created_at)
+                VALUES (?,?,?,?,?,?,?,?)
+            """, (str(uuid.uuid4()), cid, None, "stub",
+                  "candidate_created", f"CSV batch import: {file.filename}",
+                  "csv_import_worker", now()))
+            created += 1
+
+        except Exception as e:
+            errors += 1
+            err_msgs.append(f"{name}: {e}")
+
+    db.execute("""
+        INSERT INTO job_run
+          (job_run_id, worker_name, input_type, batch_id,
+           status, severity, created_count, skipped_count, error_count,
+           error_summary, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    """, (run_id, "csv_import_worker", "csv", batch_id,
+          "success" if not errors else "partial",
+          "info"    if not errors else "warning",
+          created, skipped, errors,
+          "; ".join(err_msgs[:5]) or None, now()))
+    db.commit()
+    db.close()
+    return {"created": created, "skipped": skipped, "errors": errors,
+            "error_summary": err_msgs[:5], "job_run_id": run_id}
+
+# ── Single venue create (Lovable-schema-aligned) ─────────────────────────────
+
+class VenueCreate(BaseModel):
+    name:              str
+    city:              str               = "Prague"
+    country:           str               = "Czech Republic"
+    description:       Optional[str]     = None
+    category:          Optional[str]     = None
+    tier:              Optional[str]     = None
+    address:           Optional[str]     = None
+    coordinates_lat:   Optional[float]   = None
+    coordinates_lng:   Optional[float]   = None
+    food_type:         Optional[str]     = None
+    dining_type:       Optional[str]     = None
+    seating:           Optional[str]     = None
+    parking_available: Optional[bool]    = False
+    tags:              Optional[list]    = []
+    image_url:         Optional[str]     = None
+    slug:              Optional[str]     = None
+    status_tag:        Optional[str]     = "unverified"
+
+@app.post("/venues", status_code=201)
+def create_venue(body: VenueCreate):
+    db  = get_db()
+    slug = body.slug or body.name.lower().replace(" ", "-")
+    dup  = db.execute(
+        "SELECT candidate_id FROM candidate WHERE (canonical_name=? AND city=?) OR slug=?",
+        (body.name, body.city, slug)
+    ).fetchone()
+    if dup:
+        db.close()
+        raise HTTPException(409, f"Venue already exists: {body.name}")
+
+    source_id = _get_or_create_import_source(db, "Manual single-venue entry")
+    cid = str(uuid.uuid4())
+    db.execute("""
+        INSERT INTO candidate
+          (candidate_id, canonical_name, city, country, address,
+           lat, lng, candidate_status, inclusion_status, publish_status,
+           source_count, primary_source_id,
+           category, food_type, dining_type, seating,
+           description, image_url, tags, slug, tier,
+           created_from, created_at, updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (
+        cid, body.name, body.city, body.country, body.address,
+        body.coordinates_lat, body.coordinates_lng,
+        "stub", "undecided", "not_ready",
+        1, source_id,
+        body.category, body.food_type, body.dining_type, body.seating,
+        body.description, body.image_url,
+        json.dumps(body.tags or []), slug, body.tier,
+        "manual", now(), now(),
+    ))
+    db.execute("""
+        INSERT INTO decision_log
+          (decision_id, candidate_id, previous_status, new_status,
+           decision_type, reason, decider, created_at)
+        VALUES (?,?,?,?,?,?,?,?)
+    """, (str(uuid.uuid4()), cid, None, "stub",
+          "candidate_created", "Single venue added manually", "founder", now()))
+    db.commit()
+    result = row_to_dict(db.execute("SELECT * FROM candidate WHERE candidate_id=?", (cid,)).fetchone())
+    db.close()
+    return result
 
 # ── Observations ────────────────────────────────────────────────────────────
 

@@ -316,6 +316,69 @@
   }
   .cl { display: flex; align-items: center; gap: 7px; margin: 3px 0; }
   .cd { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ── Import CSV panel ───────────────────────────────────────────── */
+  #btn-import-csv {
+    background: rgba(30,41,59,.9); border: 1px solid rgba(255,255,255,.08);
+    color: #e2e8f0; padding: 4px 10px; border-radius: 5px; font-size: 12px; cursor: pointer;
+  }
+  #btn-import-csv:hover { background: rgba(51,65,85,.9); }
+  #import-panel {
+    position: fixed; top: 96px; right: 0; width: 360px;
+    background: #0f1e33; border-left: 1px solid rgba(255,255,255,.08);
+    z-index: 1050; display: none; flex-direction: column; font-size: 13px; color: #cbd5e1;
+  }
+  #import-panel.open { display: flex; }
+  #import-panel header {
+    padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,.06);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #import-panel header h3 { font-size: 13px; color: #e2e8f0; font-weight: 600; }
+  #drop-zone {
+    margin: 16px; border: 2px dashed rgba(99,102,241,.4); border-radius: 8px;
+    padding: 28px 16px; text-align: center; color: #475569; cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  #drop-zone.drag-over { border-color: #6366f1; background: rgba(99,102,241,.06); color: #818cf8; }
+  #drop-zone input[type=file] { display: none; }
+  #import-results {
+    margin: 0 16px 12px; font-size: 12px; display: none;
+  }
+  .imp-row { display: flex; justify-content: space-between; padding: 4px 0;
+             border-bottom: 1px solid rgba(255,255,255,.04); }
+  .imp-label { color: #475569; }
+  .imp-val   { font-weight: 600; color: #e2e8f0; }
+  .imp-val.err { color: #ef4444; }
+  #btn-do-import {
+    margin: 0 16px 16px; padding: 9px; background: #6366f1; color: #fff;
+    border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+    cursor: pointer; display: none;
+  }
+  #btn-do-import:hover { background: #818cf8; }
+  .tmpl-link {
+    display: block; margin: 0 16px 8px; font-size: 11px; color: #6366f1; cursor: pointer;
+    text-decoration: underline;
+  }
+
+  /* ── Add Single Venue modal ─────────────────────────────────────── */
+  #venue-modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,.65);
+    z-index: 1400; display: none; align-items: center; justify-content: center;
+  }
+  #venue-modal-bg.open { display: flex; }
+  #venue-modal {
+    background: #0f1e33; border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px; width: 520px; max-height: 88vh; overflow-y: auto;
+    padding: 22px; color: #cbd5e1; font-size: 13px;
+  }
+  #venue-modal h3 { font-size: 15px; color: #e2e8f0; margin-bottom: 16px; font-weight: 700; }
+  .vm-section {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: #334155; margin: 14px 0 8px; padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+  .vm-row { display: flex; gap: 10px; }
+  .vm-row .obs-field { flex: 1; }
 </style>
 </head>
 <body>
@@ -2079,13 +2142,146 @@ window.addEventListener('load', function () {
   document.getElementById('btn-close-review').addEventListener('click', () => {
     document.getElementById('review-panel').classList.remove('open');
   });
-  document.getElementById('btn-add-candidate').addEventListener('click', () => {
-    activeCand = null;
-    document.getElementById('obs-place-name').value = '';
-    document.getElementById('obs-candidate-id').value = '';
-    openObsModal();
+  document.getElementById('btn-add-candidate').addEventListener('click', openVenueModal);
+  document.getElementById('btn-import-csv').addEventListener('click', toggleImportPanel);
+
+  // ── Import panel wiring ──────────────────────────────────────────
+  const dropZone  = document.getElementById('drop-zone');
+  const fileInput  = document.getElementById('csv-file-input');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFileSelected(fileInput.files[0]);
+  });
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) handleFileSelected(e.dataTransfer.files[0]);
+  });
+  document.getElementById('btn-do-import').addEventListener('click', runCsvImport);
+  document.getElementById('tmpl-download').addEventListener('click', () => {
+    window.location.href = `${API}/template.csv`;
   });
 });
+
+// ── Import panel ─────────────────────────────────────────────────────────
+let _importFile = null;
+
+function toggleImportPanel() {
+  const p = document.getElementById('import-panel');
+  const r = document.getElementById('review-panel');
+  if (p.classList.contains('open')) { p.classList.remove('open'); return; }
+  r.classList.remove('open');
+  p.classList.add('open');
+}
+
+function handleFileSelected(file) {
+  _importFile = file;
+  document.getElementById('drop-zone').innerHTML =
+    `<div style="color:#22c55e;font-size:20px">✓</div>
+     <div style="margin-top:6px;color:#94a3b8">${file.name}</div>
+     <div style="font-size:11px;color:#475569;margin-top:3px">${(file.size/1024).toFixed(1)} KB</div>`;
+  document.getElementById('btn-do-import').style.display = 'block';
+  document.getElementById('import-results').style.display = 'none';
+}
+
+async function runCsvImport() {
+  if (!_importFile) return;
+  const btn = document.getElementById('btn-do-import');
+  btn.textContent = 'Importing…'; btn.disabled = true;
+
+  const form = new FormData();
+  form.append('file', _importFile);
+
+  try {
+    const r = await fetch(`${API}/import/csv`, { method: 'POST', body: form });
+    const d = await r.json();
+
+    const res = document.getElementById('import-results');
+    res.style.display = 'block';
+    res.innerHTML = `
+      <div class="imp-row"><span class="imp-label">Created</span><span class="imp-val">${d.created}</span></div>
+      <div class="imp-row"><span class="imp-label">Skipped (duplicates)</span><span class="imp-val">${d.skipped}</span></div>
+      <div class="imp-row"><span class="imp-label">Errors</span><span class="imp-val ${d.errors>0?'err':''}">${d.errors}</span></div>
+      ${d.error_summary?.length ? `<div style="margin-top:8px;font-size:11px;color:#ef4444">${d.error_summary.join('<br>')}</div>` : ''}
+      <div style="margin-top:10px;font-size:11px;color:#22c55e">Done — refresh map to see new candidates.</div>`;
+
+    loadCandidates();
+    loadAlertBadge();
+  } catch(e) {
+    document.getElementById('import-results').style.display = 'block';
+    document.getElementById('import-results').innerHTML =
+      `<div style="color:#ef4444">Import failed: ${e.message}</div>`;
+  }
+  btn.textContent = '↑ Import CSV'; btn.disabled = false;
+}
+
+// ── Add single venue modal ───────────────────────────────────────────────
+function openVenueModal() {
+  document.getElementById('venue-modal-bg').classList.add('open');
+  document.getElementById('vm-name').value       = '';
+  document.getElementById('vm-city').value       = 'Prague';
+  document.getElementById('vm-country').value    = 'Czech Republic';
+  document.getElementById('vm-slug').value       = '';
+  document.getElementById('vm-desc').value       = '';
+  document.getElementById('vm-address').value    = '';
+  document.getElementById('vm-lat').value        = '';
+  document.getElementById('vm-lng').value        = '';
+  document.getElementById('vm-tags').value       = '';
+  document.getElementById('vm-image').value      = '';
+  document.getElementById('vm-err').textContent  = '';
+}
+function closeVenueModal() {
+  document.getElementById('venue-modal-bg').classList.remove('open');
+}
+// Auto-generate slug from name
+document.addEventListener('input', e => {
+  if (e.target.id === 'vm-name') {
+    const slug = e.target.value.toLowerCase().trim()
+      .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
+    document.getElementById('vm-slug').value = slug;
+  }
+});
+
+async function submitVenue() {
+  const name = document.getElementById('vm-name').value.trim();
+  if (!name) { document.getElementById('vm-err').textContent = 'Name is required.'; return; }
+
+  const tagsRaw = document.getElementById('vm-tags').value;
+  const tags    = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+  const body = {
+    name,
+    city:            document.getElementById('vm-city').value.trim()    || 'Prague',
+    country:         document.getElementById('vm-country').value.trim() || 'Czech Republic',
+    description:     document.getElementById('vm-desc').value.trim()    || null,
+    category:        document.getElementById('vm-category').value       || null,
+    tier:            document.getElementById('vm-tier').value           || null,
+    address:         document.getElementById('vm-address').value.trim() || null,
+    coordinates_lat: parseFloat(document.getElementById('vm-lat').value) || null,
+    coordinates_lng: parseFloat(document.getElementById('vm-lng').value) || null,
+    food_type:       document.getElementById('vm-food').value           || null,
+    dining_type:     document.getElementById('vm-dining').value         || null,
+    seating:         document.getElementById('vm-seating').value        || null,
+    image_url:       document.getElementById('vm-image').value.trim()   || null,
+    slug:            document.getElementById('vm-slug').value.trim()    || null,
+    tags,
+  };
+
+  try {
+    const r = await fetch(`${API}/venues`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      document.getElementById('vm-err').textContent = err.detail || 'Error saving venue.';
+      return;
+    }
+    closeVenueModal();
+    loadCandidates();
+  } catch(e) { document.getElementById('vm-err').textContent = e.message; }
+}
 
 </script>
 
@@ -2106,7 +2302,8 @@ window.addEventListener('load', function () {
   </select>
   <input id="cand-search" type="text" placeholder="Search…" style="width:140px">
   <button id="btn-alerts">Alerts <span id="alert-badge"></span></button>
-  <button id="btn-add-candidate">+ Add Candidate</button>
+  <button id="btn-import-csv">&#8613; Import CSV</button>
+  <button id="btn-add-candidate">+ Add Venue</button>
   <span id="cand-stats"></span>
 </div>
 
@@ -2201,6 +2398,134 @@ window.addEventListener('load', function () {
 
 <!-- ── Alert inbox panel ─────────────────────────────────────────────── -->
 <div id="alert-panel"></div>
+
+<!-- ── Import CSV panel ──────────────────────────────────────────────── -->
+<div id="import-panel">
+  <header>
+    <h3>Import Venues</h3>
+    <button onclick="document.getElementById('import-panel').classList.remove('open')"
+            style="background:none;border:none;color:#475569;font-size:20px;cursor:pointer">×</button>
+  </header>
+  <span id="tmpl-download" class="tmpl-link">⬇ Download CSV template</span>
+  <div id="drop-zone">
+    <div style="font-size:22px">📄</div>
+    <div style="margin-top:8px;font-weight:600;color:#94a3b8">Drop CSV here or click to browse</div>
+    <div style="font-size:11px;margin-top:4px">Columns must match the template</div>
+    <input type="file" id="csv-file-input" accept=".csv">
+  </div>
+  <button id="btn-do-import">↑ Import CSV</button>
+  <div id="import-results"></div>
+</div>
+
+<!-- ── Add Single Venue modal ────────────────────────────────────────── -->
+<div id="venue-modal-bg">
+  <div id="venue-modal">
+    <h3>Add New Venue</h3>
+
+    <div class="vm-section">Core</div>
+    <div class="obs-field">
+      <label>Name *</label>
+      <input id="vm-name" type="text" placeholder="Exact venue name">
+    </div>
+    <div class="vm-row">
+      <div class="obs-field">
+        <label>Category</label>
+        <select id="vm-category">
+          <option value="">—</option>
+          <option>Cafe</option><option>Bar</option><option>Bistro</option>
+          <option>Restaurant</option><option>Bakery</option><option>Pub</option>
+          <option>Wine bar</option><option>Coffee shop</option><option>Other</option>
+        </select>
+      </div>
+      <div class="obs-field">
+        <label>Tier</label>
+        <select id="vm-tier">
+          <option value="">—</option>
+          <option>Exceptional</option><option>Great</option>
+          <option>Good</option><option>New</option>
+        </select>
+      </div>
+    </div>
+    <div class="obs-field">
+      <label>Description</label>
+      <textarea id="vm-desc" placeholder="What makes this place worth knowing about…"></textarea>
+    </div>
+
+    <div class="vm-section">Location</div>
+    <div class="vm-row">
+      <div class="obs-field">
+        <label>City *</label>
+        <input id="vm-city" type="text" value="Prague">
+      </div>
+      <div class="obs-field">
+        <label>Country *</label>
+        <input id="vm-country" type="text" value="Czech Republic">
+      </div>
+    </div>
+    <div class="obs-field">
+      <label>Address</label>
+      <input id="vm-address" type="text" placeholder="Street address or district">
+    </div>
+    <div class="vm-row">
+      <div class="obs-field">
+        <label>Latitude</label>
+        <input id="vm-lat" type="number" step="any" placeholder="50.0978">
+      </div>
+      <div class="obs-field">
+        <label>Longitude</label>
+        <input id="vm-lng" type="number" step="any" placeholder="14.4198">
+      </div>
+    </div>
+
+    <div class="vm-section">Details</div>
+    <div class="vm-row">
+      <div class="obs-field">
+        <label>Food Type</label>
+        <select id="vm-food">
+          <option value="">—</option>
+          <option>Coffee</option><option>Wine</option><option>Beer</option>
+          <option>Food</option><option>Cocktails</option><option>Pizza</option>
+          <option>Burgers</option><option>Ramen</option><option>Sushi</option><option>Other</option>
+        </select>
+      </div>
+      <div class="obs-field">
+        <label>Dining Type</label>
+        <select id="vm-dining">
+          <option value="">—</option>
+          <option>Breakfast</option><option>Brunch</option><option>Lunch</option>
+          <option>Dinner</option><option>Drinks</option><option>All day</option>
+        </select>
+      </div>
+    </div>
+    <div class="vm-row">
+      <div class="obs-field">
+        <label>Seating</label>
+        <select id="vm-seating">
+          <option value="">—</option>
+          <option>indoor</option><option>outdoor</option><option>both</option>
+        </select>
+      </div>
+      <div class="obs-field">
+        <label>Tags <span style="font-size:10px;color:#334155">(comma-separated)</span></label>
+        <input id="vm-tags" type="text" placeholder="Coffee, Brunch, Dog friendly">
+      </div>
+    </div>
+    <div class="obs-field">
+      <label>Image URL</label>
+      <input id="vm-image" type="text" placeholder="https://…">
+    </div>
+    <div class="obs-field">
+      <label>Slug <span style="font-size:10px;color:#334155">(auto-generated)</span></label>
+      <input id="vm-slug" type="text" placeholder="my-venue-name">
+    </div>
+
+    <div id="vm-err" style="color:#ef4444;font-size:12px;margin-top:8px;min-height:16px"></div>
+    <footer style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn-cancel" onclick="closeVenueModal()">Cancel</button>
+      <button class="btn-submit" onclick="submitVenue()">Save as Stub</button>
+    </footer>
+  </div>
+</div>
 
 <!-- ── Candidate status legend ──────────────────────────────────────── -->
 <div id="cand-legend">
