@@ -1878,6 +1878,8 @@ let candMarkers   = [];   // L.circleMarker instances for candidate mode
 let activeCand    = null; // currently selected candidate object
 let candMode      = false;
 let candFilter    = { status: '', search: '' };
+let activeCity    = null; // {name, lat, lng} of current map city
+let activeCountry = null;
 
 // ── Toolbar wiring ──────────────────────────────────────────────────────
 function showCandToolbar() {
@@ -1912,6 +1914,7 @@ async function loadCandidates() {
   const params = new URLSearchParams({ limit: 2000 });
   if (candFilter.status) params.set('status', candFilter.status);
   if (candFilter.search) params.set('search', candFilter.search);
+  if (activeCity) params.set('city', activeCity.name);
 
   let data;
   try {
@@ -2113,12 +2116,14 @@ async function resolveAlert(id, btn) {
   } catch(e) {}
 }
 
-// Hook into showMapView to show candidate toolbar when Prague is selected.
-// These overrides run immediately (no DOM access needed).
+// Show candidate toolbar whenever any city map view opens (not just hasVenues).
+// This lets users import/add venues for any city, including new ones.
 const _origShowMapView = showMapView;
 showMapView = async function(country, focusCity) {
+  activeCountry = country;
+  activeCity    = focusCity || null;
   await _origShowMapView(country, focusCity);
-  if (focusCity && focusCity.hasVenues) showCandToolbar();
+  if (focusCity) showCandToolbar();
 };
 const _origHideMapView = hideMapView;
 hideMapView = function() {
@@ -2221,8 +2226,8 @@ async function runCsvImport() {
 function openVenueModal() {
   document.getElementById('venue-modal-bg').classList.add('open');
   document.getElementById('vm-name').value       = '';
-  document.getElementById('vm-city').value       = 'Prague';
-  document.getElementById('vm-country').value    = 'Czech Republic';
+  document.getElementById('vm-city').value       = activeCity?.name    || 'Prague';
+  document.getElementById('vm-country').value    = activeCountry       || 'Czech Republic';
   document.getElementById('vm-slug').value       = '';
   document.getElementById('vm-desc').value       = '';
   document.getElementById('vm-address').value    = '';
