@@ -10,6 +10,112 @@
   body { background: #0f172a; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
   canvas { display: block; }
 
+  /* ── Top navigation tab bar ───────────────────────────────────────── */
+  #app-tabs {
+    position: fixed; top: 0; left: 0; right: 0; height: 44px;
+    background: rgba(6,11,24,0.98); border-bottom: 1px solid rgba(255,255,255,0.06);
+    z-index: 2000; display: flex; align-items: center;
+    padding: 0 20px; gap: 0;
+  }
+  #app-tabs .brand {
+    font-size: 13px; font-weight: 700; letter-spacing: 1.5px;
+    color: #6366f1; text-transform: uppercase; margin-right: 28px; flex-shrink: 0;
+  }
+  #app-tabs .tab-btn {
+    height: 44px; padding: 0 16px; background: none; border: none;
+    color: #475569; font-size: 12px; font-weight: 500; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; position: relative;
+    letter-spacing: .3px; transition: color .15s; white-space: nowrap;
+  }
+  #app-tabs .tab-btn:hover { color: #94a3b8; }
+  #app-tabs .tab-btn.active { color: #e2e8f0; }
+  #app-tabs .tab-btn.active::after {
+    content: ''; position: absolute; bottom: 0; left: 12px; right: 12px;
+    height: 2px; background: #6366f1; border-radius: 2px 2px 0 0;
+  }
+
+  /* ── Tab content panels ───────────────────────────────────────────── */
+  .tab-panel {
+    position: fixed; top: 44px; left: 0; right: 0; bottom: 0;
+    background: #080e1c; z-index: 1900; display: none;
+    flex-direction: column; overflow: hidden; color: #cbd5e1;
+  }
+  .tab-panel.active { display: flex; }
+  .tab-panel-header {
+    padding: 20px 28px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .tab-panel-header h2 { font-size: 16px; color: #e2e8f0; font-weight: 700; }
+  .tab-panel-header p  { font-size: 12px; color: #475569; margin-top: 2px; }
+  .tab-panel-body { flex: 1; overflow-y: auto; padding: 24px 28px; }
+
+  /* Venues tab ─────────────────────────────────────────────── */
+  #tab-venues-search-row {
+    display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap;
+  }
+  #tab-venues-search-row input,
+  #tab-venues-search-row select {
+    background: rgba(30,41,59,.9); border: 1px solid rgba(255,255,255,.08);
+    color: #e2e8f0; font-size: 12px; padding: 7px 10px; border-radius: 6px;
+    outline: none; font-family: inherit;
+  }
+  #tab-venues-search-row input { flex: 1; min-width: 180px; }
+  #venues-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  #venues-table th {
+    text-align: left; padding: 8px 12px; font-size: 10px; letter-spacing: 1px;
+    text-transform: uppercase; color: #475569; border-bottom: 1px solid rgba(255,255,255,.06);
+    cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  #venues-table th:hover { color: #94a3b8; }
+  #venues-table td {
+    padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.04);
+    color: #94a3b8; vertical-align: middle;
+  }
+  #venues-table tr { cursor: pointer; transition: background .12s; }
+  #venues-table tr:hover td { background: rgba(99,102,241,.06); color: #e2e8f0; }
+  .vt-name  { color: #e2e8f0 !important; font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vt-chip  { font-size: 10px; padding: 2px 7px; border-radius: 3px; display: inline-block; font-weight: 600; }
+  #venues-load-more {
+    margin: 20px auto 0; display: block; padding: 8px 24px;
+    background: rgba(30,41,59,.9); border: 1px solid rgba(255,255,255,.08);
+    color: #94a3b8; border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+  #venues-load-more:hover { color: #e2e8f0; }
+
+  /* Settings tab ───────────────────────────────────────────── */
+  .settings-section { margin-bottom: 32px; }
+  .settings-section h3 {
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #64748b; margin-bottom: 14px; padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+  .settings-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+  .settings-row label { font-size: 12px; color: #94a3b8; min-width: 140px; }
+  .settings-row input, .settings-row select {
+    flex: 1; min-width: 200px; max-width: 360px;
+    background: rgba(30,41,59,.9); border: 1px solid rgba(255,255,255,.08);
+    color: #e2e8f0; font-size: 12px; padding: 7px 10px; border-radius: 6px;
+    outline: none; font-family: inherit;
+  }
+  .settings-save {
+    padding: 8px 22px; background: #6366f1; color: #fff; border: none;
+    border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .settings-save:hover { background: #818cf8; }
+  .settings-note { font-size: 11px; color: #334155; margin-top: 8px; }
+
+  /* Manual / Guide tab ─────────────────────────────────────── */
+  .manual-section { margin-bottom: 32px; max-width: 720px; }
+  .manual-section h3 { font-size: 14px; color: #e2e8f0; font-weight: 700; margin-bottom: 10px; }
+  .manual-section p  { font-size: 13px; color: #64748b; line-height: 1.7; margin-bottom: 8px; }
+  .manual-section ul { padding-left: 20px; }
+  .manual-section ul li { font-size: 13px; color: #64748b; line-height: 1.8; }
+  .manual-section ul li strong { color: #94a3b8; }
+  .status-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .status-table th { text-align: left; padding: 6px 10px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #334155; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .status-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.03); color: #64748b; }
+  .status-table td:first-child { font-weight: 600; color: #94a3b8; }
+
   #loading {
     position: fixed; inset: 0; background: #0f172a;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -83,7 +189,7 @@
     justify-content: flex-end; /* pack items toward the bottom edge       */
     gap: 10px;
     align-items: flex-start;
-    max-height: calc(100vh - 120px); /* never taller than viewport minus toolbar */
+    max-height: calc(100vh - 164px); /* never taller than viewport minus tab bar + toolbar */
     overflow-y: auto;
     pointer-events: none;      /* stack itself is transparent to mouse     */
   }
@@ -95,7 +201,7 @@
   @media (max-width: 640px) {
     #bottom-left-stack {
       bottom: auto; left: auto;
-      top: 96px; right: 8px;
+      top: 140px; right: 8px;
       align-items: flex-end;
       max-height: calc(50vh - 96px);
       flex-direction: column-reverse; /* legends above, explore below on mobile */
@@ -108,7 +214,7 @@
   @media (max-height: 480px) {
     #bottom-left-stack {
       bottom: auto; left: auto;
-      top: 96px; right: 8px;
+      top: 140px; right: 8px;
       align-items: flex-end;
       max-height: calc(100vh - 120px);
       flex-direction: column-reverse;
@@ -124,7 +230,7 @@
   #hint.visible { color: #334155; }
 
   #country-view-header {
-    position: fixed; top: 0; left: 0; right: 0; height: 52px;
+    position: fixed; top: 44px; left: 0; right: 0; height: 52px;
     background: rgba(15,23,42,0.94); border-bottom: 1px solid rgba(255,255,255,0.08);
     display: none; align-items: center; padding: 0 24px; gap: 16px;
     z-index: 1100; backdrop-filter: blur(8px);
@@ -187,7 +293,7 @@
 
   /* ── Candidate mode toolbar ─────────────────────────────────── */
   #cand-toolbar {
-    position: fixed; top: 52px; left: 0; right: 0; height: 44px;
+    position: fixed; top: 96px; left: 0; right: 0; height: 44px;
     background: rgba(10,18,36,0.97); border-bottom: 1px solid rgba(255,255,255,0.07);
     display: none; align-items: center; gap: 10px; padding: 0 16px;
     z-index: 1100;
@@ -216,7 +322,7 @@
   }
 
   /* ── Candidate-mode map area shifts down when toolbar is visible ─ */
-  #map-view.cand-mode { top: 96px; }
+  #map-view.cand-mode { top: 140px; }
 
   /* ── Status colours (candidate map) ────────────────────────────── */
   .cs-stub          { fill: #64748b; }
@@ -231,7 +337,7 @@
 
   /* ── Review slide-in panel ─────────────────────────────────────── */
   #review-panel {
-    position: fixed; top: 96px; right: 0; bottom: 0; width: 340px;
+    position: fixed; top: 140px; right: 0; bottom: 0; width: 340px;
     background: #0f1e33; border-left: 1px solid rgba(255,255,255,0.08);
     z-index: 1050; display: none; flex-direction: column;
     font-size: 13px; color: #cbd5e1; overflow-y: auto;
@@ -318,7 +424,7 @@
 
   /* ── Alert inbox panel ──────────────────────────────────────────── */
   #alert-panel {
-    position: fixed; top: 96px; left: 50%; transform: translateX(-50%);
+    position: fixed; top: 140px; left: 50%; transform: translateX(-50%);
     width: 520px; max-height: 70vh; overflow-y: auto;
     background: #0f1e33; border: 1px solid rgba(255,255,255,.1);
     border-radius: 10px; z-index: 1200; display: none; flex-direction: column;
@@ -364,7 +470,7 @@
   }
   #btn-import-csv:hover { background: rgba(51,65,85,.9); }
   #import-panel {
-    position: fixed; top: 96px; right: 0; width: 360px;
+    position: fixed; top: 140px; right: 0; width: 360px;
     background: #0f1e33; border-left: 1px solid rgba(255,255,255,.08);
     z-index: 1050; display: none; flex-direction: column; font-size: 13px; color: #cbd5e1;
   }
@@ -422,6 +528,173 @@
 </style>
 </head>
 <body>
+
+<!-- ── Top navigation ──────────────────────────────────────────────────── -->
+<nav id="app-tabs">
+  <span class="brand">CityScout</span>
+  <button class="tab-btn active" data-tab="globe" onclick="switchTab('globe')">🌍 Globe</button>
+  <button class="tab-btn" data-tab="venues" onclick="switchTab('venues')">📍 Venues</button>
+  <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">⚙ Settings</button>
+  <button class="tab-btn" data-tab="manual" onclick="switchTab('manual')">📖 Manual</button>
+</nav>
+
+<!-- ── Venues tab panel ─────────────────────────────────────────────────── -->
+<div id="tab-panel-venues" class="tab-panel">
+  <div class="tab-panel-header">
+    <div>
+      <h2>Venues</h2>
+      <p>All candidates in the database — click a row to open the review sidebar on the map.</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span id="venues-count" style="font-size:11px;color:#334155"></span>
+    </div>
+  </div>
+  <div class="tab-panel-body">
+    <div id="tab-venues-search-row">
+      <input id="vt-search" type="text" placeholder="Search by name or city…" oninput="filterVenuesTable()">
+      <select id="vt-status" onchange="filterVenuesTable()">
+        <option value="">All statuses</option>
+        <option value="stub">Stub</option>
+        <option value="needs_review">Needs Review</option>
+        <option value="approved_for_inclusion">Approved</option>
+        <option value="published">Published</option>
+        <option value="rejected">Rejected</option>
+        <option value="needs_visit">Needs Visit</option>
+      </select>
+      <select id="vt-city" onchange="filterVenuesTable()">
+        <option value="">All cities</option>
+      </select>
+    </div>
+    <table id="venues-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>City</th>
+          <th>Status</th>
+          <th>Category</th>
+          <th>Tier</th>
+          <th>Source</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody id="venues-tbody"></tbody>
+    </table>
+    <button id="venues-load-more" style="display:none" onclick="loadMoreVenues()">Load more</button>
+  </div>
+</div>
+
+<!-- ── Settings tab panel ───────────────────────────────────────────────── -->
+<div id="tab-panel-settings" class="tab-panel">
+  <div class="tab-panel-header">
+    <div><h2>Settings</h2><p>Configure the application and API connection.</p></div>
+  </div>
+  <div class="tab-panel-body">
+    <div class="settings-section">
+      <h3>API Connection</h3>
+      <div class="settings-row">
+        <label>Backend URL</label>
+        <input id="set-api-url" type="text" value="http://localhost:8766" placeholder="http://localhost:8766">
+      </div>
+      <div class="settings-row">
+        <label></label>
+        <div>
+          <button class="settings-save" onclick="saveSettings()">Save &amp; Reconnect</button>
+          <span id="set-status" style="margin-left:12px;font-size:11px;color:#22c55e"></span>
+        </div>
+      </div>
+      <p class="settings-note">Changes take effect immediately. The URL is stored in your browser.</p>
+    </div>
+
+    <div class="settings-section">
+      <h3>Display</h3>
+      <div class="settings-row">
+        <label>Default country</label>
+        <select id="set-default-country">
+          <option value="">None — show globe</option>
+          <option value="Czech Republic">Czech Republic</option>
+          <option value="Malta">Malta</option>
+          <option value="Italy">Italy</option>
+          <option value="Portugal">Portugal</option>
+          <option value="Spain">Spain</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <label>Candidate pin size</label>
+        <select id="set-pin-size">
+          <option value="7">Normal (7px)</option>
+          <option value="5">Small (5px)</option>
+          <option value="10">Large (10px)</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <label></label>
+        <button class="settings-save" onclick="saveSettings()">Save</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Database</h3>
+      <div id="set-db-stats" style="font-size:12px;color:#475569;line-height:2">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Manual / Guide tab panel ─────────────────────────────────────────── -->
+<div id="tab-panel-manual" class="tab-panel">
+  <div class="tab-panel-header">
+    <div><h2>Guide</h2><p>How to use CityScout.</p></div>
+  </div>
+  <div class="tab-panel-body">
+    <div class="manual-section">
+      <h3>The Globe</h3>
+      <p>Drag to rotate, scroll to zoom, double-click to reset. Click a country name badge to enter country view. Click a city to open the flat map.</p>
+      <p>Use the <strong>Explore Cities</strong> panel (bottom-left) to jump straight to any city by selecting country then city from the dropdowns.</p>
+    </div>
+    <div class="manual-section">
+      <h3>Candidate Mode</h3>
+      <p>Candidate mode activates automatically when you navigate to a city. The toolbar across the top lets you filter candidates by status or search by name.</p>
+      <p>Click any coloured dot on the map to open the review sidebar on the right. From there you can:</p>
+      <ul>
+        <li><strong>Approve for Inclusion</strong> — moves candidate toward publishing</li>
+        <li><strong>Needs Visit</strong> — flags the venue for an in-person check</li>
+        <li><strong>Needs Review</strong> — pauses the candidate for further research</li>
+        <li><strong>Reject</strong> — removes the candidate from consideration (with reason)</li>
+        <li><strong>Edit Details</strong> — update name, description, category, tier, coordinates, tags, and more via the edit form</li>
+        <li><strong>Log Observation</strong> — record a first-hand or trusted review directly against the candidate</li>
+      </ul>
+    </div>
+    <div class="manual-section">
+      <h3>Adding Venues</h3>
+      <p>Use the toolbar buttons when in a city map view:</p>
+      <ul>
+        <li><strong>↑ Import CSV</strong> — bulk upload venues using the CityScout schema. Download the template first to ensure column alignment with the Lovable database.</li>
+        <li><strong>+ Add Venue</strong> — add a single venue via the form. City and country are pre-filled from the map you're viewing.</li>
+      </ul>
+      <p>All imported venues land as <strong>Stub</strong> status and must be reviewed before they can be published.</p>
+    </div>
+    <div class="manual-section">
+      <h3>Candidate Status Lifecycle</h3>
+      <table class="status-table">
+        <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>Stub</td><td>Just imported — minimal data, needs enrichment</td></tr>
+          <tr><td>Needs Match</td><td>Cannot be matched to a confirmed map location</td></tr>
+          <tr><td>Source Backed</td><td>Supported by at least one approved source</td></tr>
+          <tr><td>Human Observed</td><td>A verified first-hand review has been logged</td></tr>
+          <tr><td>Needs Review</td><td>Paused — requires more research before deciding</td></tr>
+          <tr><td>Needs Visit</td><td>Needs an in-person check before a decision</td></tr>
+          <tr><td>Approved</td><td>Cleared for inclusion in the guide</td></tr>
+          <tr><td>Rejected</td><td>Excluded, with reason recorded</td></tr>
+          <tr><td>Published</td><td>Live in the guide for users to see</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="manual-section">
+      <h3>CSV Schema</h3>
+      <p>The import CSV must match the Lovable/Supabase <code>establishments</code> table column order exactly. Download the template from the Import CSV panel to get the correct headers. Key required fields: <strong>name</strong>, <strong>city</strong>, <strong>country</strong>. All other fields are optional.</p>
+    </div>
+  </div>
+</div>
 
 <div id="loading">
   <h2>Loading Earth</h2>
@@ -1915,7 +2188,7 @@ main().catch(err => {
 // GREEN 1 — Candidate Universe Engine
 // ══════════════════════════════════════════════════════════════════════════
 
-const API = 'http://localhost:8766';
+let API = localStorage.getItem('cs_api_url') || 'http://localhost:8766';
 
 const STATUS_COLOR = {
   stub:                  '#64748b',
@@ -2417,6 +2690,162 @@ async function submitVenue() {
     } catch(e) { document.getElementById('vm-err').textContent = e.message; }
   }
 }
+
+// ── Tab navigation ──────────────────────────────────────────────────────────
+let _activeTab = 'globe';
+
+function switchTab(tab) {
+  _activeTab = tab;
+
+  // Toggle tab button active states
+  document.querySelectorAll('#app-tabs .tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+
+  // Toggle panels
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  if (tab !== 'globe') {
+    document.getElementById(`tab-panel-${tab}`).classList.add('active');
+  }
+
+  if (tab === 'venues')   loadVenuesTab();
+  if (tab === 'settings') loadSettingsTab();
+}
+
+// ── Venues table ────────────────────────────────────────────────────────────
+let _vtAllRows = [];
+let _vtPage    = 0;
+const VT_PAGE  = 100;
+
+async function loadVenuesTab() {
+  const tbody = document.getElementById('venues-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" style="color:#334155;padding:24px;text-align:center">Loading…</td></tr>';
+
+  let data;
+  try {
+    const r = await fetch(`${API}/candidates?limit=5000`);
+    data = await r.json();
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7" style="color:#ef4444;padding:24px">API offline: ${e.message}</td></tr>`;
+    return;
+  }
+
+  _vtAllRows = data.items || [];
+  document.getElementById('venues-count').textContent = `${_vtAllRows.length} venues`;
+
+  // Populate city filter
+  const citySet = new Set(_vtAllRows.map(c => c.city).filter(Boolean));
+  const cityEl  = document.getElementById('vt-city');
+  cityEl.innerHTML = '<option value="">All cities</option>';
+  [...citySet].sort().forEach(city => {
+    const o = document.createElement('option');
+    o.value = o.textContent = city;
+    cityEl.appendChild(o);
+  });
+
+  _vtPage = 0;
+  renderVenuesTable();
+}
+
+function filterVenuesTable() { _vtPage = 0; renderVenuesTable(); }
+
+function renderVenuesTable() {
+  const search = (document.getElementById('vt-search')?.value || '').toLowerCase();
+  const status = document.getElementById('vt-status')?.value || '';
+  const city   = document.getElementById('vt-city')?.value   || '';
+
+  let rows = _vtAllRows;
+  if (search) rows = rows.filter(c =>
+    (c.canonical_name || '').toLowerCase().includes(search) ||
+    (c.city || '').toLowerCase().includes(search));
+  if (status) rows = rows.filter(c => c.candidate_status === status);
+  if (city)   rows = rows.filter(c => c.city === city);
+
+  const page = rows.slice(0, (_vtPage + 1) * VT_PAGE);
+  const tbody = document.getElementById('venues-tbody');
+
+  tbody.innerHTML = page.map(c => {
+    const col   = STATUS_COLOR[c.candidate_status] || '#64748b';
+    const label = STATUS_LABEL[c.candidate_status] || c.candidate_status;
+    const date  = c.updated_at ? c.updated_at.slice(0,10) : '—';
+    return `<tr onclick="openVenueFromTable('${c.candidate_id}')">
+      <td class="vt-name" title="${c.canonical_name}">${c.canonical_name}</td>
+      <td>${c.city || '—'}</td>
+      <td><span class="vt-chip" style="background:${col}22;color:${col}">${label}</span></td>
+      <td>${c.category || '—'}</td>
+      <td>${c.tier || '—'}</td>
+      <td style="font-size:10px;color:#334155">${c.created_from || '—'}</td>
+      <td style="font-size:10px;color:#334155">${date}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="color:#334155;padding:24px;text-align:center">No matches</td></tr>';
+
+  const loadMore = document.getElementById('venues-load-more');
+  loadMore.style.display = rows.length > (_vtPage + 1) * VT_PAGE ? 'block' : 'none';
+}
+
+function loadMoreVenues() { _vtPage++; renderVenuesTable(); }
+
+async function openVenueFromTable(candidateId) {
+  // Switch to globe tab to show the map + review panel
+  switchTab('globe');
+  let cand;
+  try {
+    const r = await fetch(`${API}/candidates/${candidateId}`);
+    cand    = await r.json();
+  } catch(e) { return; }
+
+  // If we have a map, open the review panel directly
+  if (lMap) {
+    openReviewPanel(cand);
+    // If we have coordinates, fly the map to the venue
+    if (cand.lat && cand.lng) lMap.flyTo([cand.lat, cand.lng], 15, { duration: 1 });
+  }
+}
+
+// ── Settings ─────────────────────────────────────────────────────────────────
+function loadSettingsTab() {
+  // Load saved values
+  document.getElementById('set-api-url').value =
+    localStorage.getItem('cs_api_url') || 'http://localhost:8766';
+  document.getElementById('set-pin-size').value =
+    localStorage.getItem('cs_pin_size') || '7';
+  document.getElementById('set-default-country').value =
+    localStorage.getItem('cs_default_country') || '';
+
+  // DB stats
+  fetch(`${API}/stats`).then(r => r.json()).then(d => {
+    const el = document.getElementById('set-db-stats');
+    if (!el) return;
+    el.innerHTML = Object.entries(d).map(([k,v]) =>
+      `<div><strong style="color:#64748b;min-width:180px;display:inline-block">${k}:</strong> ${
+        typeof v === 'object' ? Object.entries(v).map(([k2,v2])=>`${k2}: ${v2}`).join(' · ') : v
+      }</div>`).join('');
+  }).catch(() => {
+    const el = document.getElementById('set-db-stats');
+    if (el) el.textContent = 'API offline';
+  });
+}
+
+function saveSettings() {
+  const url     = document.getElementById('set-api-url').value.trim();
+  const pinSize = document.getElementById('set-pin-size').value;
+  const country = document.getElementById('set-default-country').value;
+
+  if (url) {
+    localStorage.setItem('cs_api_url', url);
+    window.API = url;           // update the global used by all fetch calls
+  }
+  localStorage.setItem('cs_pin_size',          pinSize);
+  localStorage.setItem('cs_default_country',   country);
+
+  const st = document.getElementById('set-status');
+  st.textContent = 'Saved ✓';
+  setTimeout(() => { st.textContent = ''; }, 2500);
+
+  // Reload candidates with new pin size if map is open
+  if (candMode) loadCandidates();
+}
+
 
 </script>
 
