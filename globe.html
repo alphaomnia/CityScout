@@ -1786,7 +1786,7 @@ main().catch(err => {
 // GREEN 1 — Candidate Universe Engine
 // ══════════════════════════════════════════════════════════════════════════
 
-const API = 'http://localhost:8765';
+const API = 'http://localhost:8766';
 
 const STATUS_COLOR = {
   stub:                  '#64748b',
@@ -2050,27 +2050,8 @@ async function resolveAlert(id, btn) {
   } catch(e) {}
 }
 
-// ── Filter wiring ────────────────────────────────────────────────────────
-document.getElementById('cand-status-filter').addEventListener('change', e => {
-  candFilter.status = e.target.value;
-  if (candMode) loadCandidates();
-});
-document.getElementById('cand-search').addEventListener('input', e => {
-  candFilter.search = e.target.value;
-  if (candMode) loadCandidates();
-});
-document.getElementById('btn-alerts').addEventListener('click', toggleAlerts);
-document.getElementById('btn-close-review').addEventListener('click', () => {
-  document.getElementById('review-panel').classList.remove('open');
-});
-document.getElementById('btn-add-candidate').addEventListener('click', () => {
-  activeCand = null;
-  document.getElementById('obs-place-name').value = '';
-  document.getElementById('obs-candidate-id').value = '';
-  openObsModal();
-});
-
-// Hook into showMapView to show candidate toolbar when Prague is selected
+// Hook into showMapView to show candidate toolbar when Prague is selected.
+// These overrides run immediately (no DOM access needed).
 const _origShowMapView = showMapView;
 showMapView = async function(country, focusCity) {
   await _origShowMapView(country, focusCity);
@@ -2081,6 +2062,30 @@ hideMapView = function() {
   hideCandToolbar();
   _origHideMapView();
 };
+
+// ── DOM wiring deferred until all HTML is parsed ──────────────────────────
+// The toolbar/panel HTML sits AFTER this <script> tag, so getElementById
+// returns null here. window 'load' fires after the full document is ready.
+window.addEventListener('load', function () {
+  document.getElementById('cand-status-filter').addEventListener('change', e => {
+    candFilter.status = e.target.value;
+    if (candMode) loadCandidates();
+  });
+  document.getElementById('cand-search').addEventListener('input', e => {
+    candFilter.search = e.target.value;
+    if (candMode) loadCandidates();
+  });
+  document.getElementById('btn-alerts').addEventListener('click', toggleAlerts);
+  document.getElementById('btn-close-review').addEventListener('click', () => {
+    document.getElementById('review-panel').classList.remove('open');
+  });
+  document.getElementById('btn-add-candidate').addEventListener('click', () => {
+    activeCand = null;
+    document.getElementById('obs-place-name').value = '';
+    document.getElementById('obs-candidate-id').value = '';
+    openObsModal();
+  });
+});
 
 </script>
 
