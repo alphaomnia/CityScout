@@ -31,8 +31,8 @@
     pointer-events: none;
   }
   #legend h3 {
-    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
-    color: #334155; margin-bottom: 9px;
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #cbd5e1; margin-bottom: 9px; font-weight: 700;
   }
   .leg { display: flex; align-items: center; gap: 9px; margin: 4px 0; }
   .sw  { width: 18px; height: 8px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.08); }
@@ -45,33 +45,56 @@
     pointer-events: none;
   }
   #venue-legend h3 {
-    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
-    color: #334155; margin-bottom: 9px;
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #cbd5e1; margin-bottom: 9px; font-weight: 700;
   }
 
   #explore-panel {
-    position: fixed; bottom: 160px; left: 24px;
-    background: rgba(15,23,42,0.88); border: 1px solid rgba(255,255,255,0.07);
-    padding: 14px 18px; border-radius: 10px; backdrop-filter: blur(6px);
-    z-index: 1200; min-width: 200px; color: #94a3b8; font-size: 11px;
+    position: fixed;
+    bottom: 160px; left: 24px;
+    background: rgba(15,23,42,0.92); border: 1px solid rgba(255,255,255,0.10);
+    padding: 14px 18px; border-radius: 10px; backdrop-filter: blur(8px);
+    z-index: 1200; min-width: 210px; color: #94a3b8; font-size: 11px;
+    max-height: calc(100vh - 280px); overflow-y: auto;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
   }
   #explore-panel h3 {
-    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
-    color: #334155; margin-bottom: 10px;
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #cbd5e1; margin-bottom: 10px; font-weight: 700;
   }
   .ep-row { margin: 7px 0; display: flex; flex-direction: column; gap: 4px; }
   .ep-row label {
-    font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: #475569;
+    font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8;
   }
   .ep-row select {
-    background: rgba(30,41,59,0.95); border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 5px; color: #e2e8f0; font-size: 11px; padding: 5px 8px;
+    background: rgba(30,41,59,0.95); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 5px; color: #e2e8f0; font-size: 12px; padding: 6px 8px;
     outline: none; cursor: pointer; font-family: inherit; width: 100%;
   }
   .ep-row select:disabled { opacity: 0.35; cursor: default; }
   .ep-row select option { background: #1e293b; }
   #city-badge {
-    margin-top: 9px; font-size: 10px; color: #64748b; min-height: 14px;
+    margin-top: 9px; font-size: 11px; color: #94a3b8; min-height: 14px;
+  }
+
+  /* On narrow screens: float panel to top-right so it never covers the bottom-left legend */
+  @media (max-width: 640px) {
+    #explore-panel {
+      bottom: auto; left: auto;
+      top: 96px; right: 8px;
+      min-width: 0; width: calc(50vw - 12px); max-width: 220px;
+      max-height: calc(50vh - 48px);
+      font-size: 12px;
+    }
+  }
+  /* Very short screens (landscape mobile) */
+  @media (max-height: 480px) {
+    #explore-panel {
+      bottom: auto; left: auto;
+      top: 96px; right: 8px;
+      min-width: 0; width: 200px;
+      max-height: calc(100vh - 120px);
+    }
   }
 
   #hint {
@@ -151,7 +174,7 @@
     display: none; align-items: center; gap: 10px; padding: 0 16px;
     z-index: 1100;
   }
-  #cand-toolbar label { font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: .8px; }
+  #cand-toolbar label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .8px; }
   #cand-toolbar select, #cand-toolbar input {
     background: rgba(30,41,59,0.9); border: 1px solid rgba(255,255,255,0.08);
     color: #e2e8f0; font-size: 12px; padding: 4px 8px; border-radius: 5px;
@@ -212,7 +235,7 @@
   .review-field { margin-bottom: 10px; }
   .review-field label {
     display: block; font-size: 10px; text-transform: uppercase;
-    letter-spacing: .7px; color: #475569; margin-bottom: 3px;
+    letter-spacing: .7px; color: #94a3b8; margin-bottom: 3px;
   }
   .review-field p { font-size: 12px; color: #94a3b8; line-height: 1.5; }
   .review-actions { display: flex; flex-direction: column; gap: 7px; padding: 0 16px 16px; }
@@ -255,7 +278,7 @@
   .obs-field { margin-bottom: 12px; }
   .obs-field label {
     display: block; font-size: 10px; text-transform: uppercase;
-    letter-spacing: .7px; color: #475569; margin-bottom: 4px;
+    letter-spacing: .7px; color: #94a3b8; margin-bottom: 4px;
   }
   .obs-field input, .obs-field select, .obs-field textarea {
     width: 100%; background: rgba(30,41,59,.9);
@@ -311,8 +334,8 @@
     z-index: 1000; display: none; pointer-events: none;
   }
   #cand-legend h4 {
-    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
-    color: #334155; margin-bottom: 7px;
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #cbd5e1; margin-bottom: 7px; font-weight: 700;
   }
   .cl { display: flex; align-items: center; gap: 7px; margin: 3px 0; }
   .cd { width: 10px; height: 10px; border-radius: 50%; }
@@ -374,7 +397,7 @@
   #venue-modal h3 { font-size: 15px; color: #e2e8f0; margin-bottom: 16px; font-weight: 700; }
   .vm-section {
     font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px;
-    color: #334155; margin: 14px 0 8px; padding-bottom: 4px;
+    color: #64748b; margin: 14px 0 8px; padding-bottom: 4px;
     border-bottom: 1px solid rgba(255,255,255,.05);
   }
   .vm-row { display: flex; gap: 10px; }
