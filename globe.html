@@ -38,7 +38,6 @@
   .sw  { width: 18px; height: 8px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.08); }
 
   #venue-legend {
-    position: fixed; bottom: 24px; left: 24px;
     background: rgba(15,23,42,0.85); border: 1px solid rgba(255,255,255,0.07);
     padding: 14px 18px; border-radius: 10px;
     color: #94a3b8; font-size: 11px; backdrop-filter: blur(6px);
@@ -50,12 +49,9 @@
   }
 
   #explore-panel {
-    position: fixed;
-    bottom: 160px; left: 24px;
     background: rgba(15,23,42,0.92); border: 1px solid rgba(255,255,255,0.10);
     padding: 14px 18px; border-radius: 10px; backdrop-filter: blur(8px);
-    z-index: 1200; min-width: 210px; color: #94a3b8; font-size: 11px;
-    max-height: calc(100vh - 280px); overflow-y: auto;
+    min-width: 210px; color: #94a3b8; font-size: 11px;
     box-shadow: 0 4px 24px rgba(0,0,0,0.4);
   }
   #explore-panel h3 {
@@ -77,23 +73,45 @@
     margin-top: 9px; font-size: 11px; color: #94a3b8; min-height: 14px;
   }
 
-  /* On narrow screens: float panel to top-right so it never covers the bottom-left legend */
+  /* ── Bottom-left stack: explore panel + legends, never overlap ─────── */
+  #bottom-left-stack {
+    position: fixed;
+    bottom: 24px; left: 24px;
+    z-index: 1200;
+    display: flex;
+    flex-direction: column;    /* items flow top→bottom inside container  */
+    justify-content: flex-end; /* pack items toward the bottom edge       */
+    gap: 10px;
+    align-items: flex-start;
+    max-height: calc(100vh - 120px); /* never taller than viewport minus toolbar */
+    overflow-y: auto;
+    pointer-events: none;      /* stack itself is transparent to mouse     */
+  }
+  #bottom-left-stack > * { pointer-events: auto; } /* children capture events */
+  #bottom-left-stack > #venue-legend,
+  #bottom-left-stack > #cand-legend { pointer-events: none; }
+
+  /* On narrow screens: move whole stack to top-right, below toolbar */
   @media (max-width: 640px) {
-    #explore-panel {
+    #bottom-left-stack {
       bottom: auto; left: auto;
       top: 96px; right: 8px;
+      align-items: flex-end;
+      max-height: calc(50vh - 96px);
+      flex-direction: column-reverse; /* legends above, explore below on mobile */
+    }
+    #explore-panel {
       min-width: 0; width: calc(50vw - 12px); max-width: 220px;
-      max-height: calc(50vh - 48px);
       font-size: 12px;
     }
   }
-  /* Very short screens (landscape mobile) */
   @media (max-height: 480px) {
-    #explore-panel {
+    #bottom-left-stack {
       bottom: auto; left: auto;
       top: 96px; right: 8px;
-      min-width: 0; width: 200px;
+      align-items: flex-end;
       max-height: calc(100vh - 120px);
+      flex-direction: column-reverse;
     }
   }
 
@@ -328,10 +346,9 @@
 
   /* ── Candidate status legend (map bottom-left) ──────────────────── */
   #cand-legend {
-    position: fixed; bottom: 24px; left: 24px;
     background: rgba(15,23,42,0.88); border: 1px solid rgba(255,255,255,.07);
     padding: 12px 16px; border-radius: 9px; font-size: 11px; color: #94a3b8;
-    z-index: 1000; display: none; pointer-events: none;
+    display: none; pointer-events: none;
   }
   #cand-legend h4 {
     font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
@@ -423,25 +440,40 @@
   <div class="leg"><div class="sw" style="background:rgba(120,20,20,0.9)"></div>Very High</div>
 </div>
 
-<div id="explore-panel">
-  <h3>Explore Cities</h3>
-  <div class="ep-row">
-    <label>Country</label>
-    <select id="country-select"><option value="">Select country…</option></select>
+<div id="bottom-left-stack">
+  <div id="explore-panel">
+    <h3>Explore Cities</h3>
+    <div class="ep-row">
+      <label>Country</label>
+      <select id="country-select"><option value="">Select country…</option></select>
+    </div>
+    <div class="ep-row">
+      <label>City</label>
+      <select id="city-select" disabled><option value="">Select city…</option></select>
+    </div>
+    <div id="city-badge"></div>
   </div>
-  <div class="ep-row">
-    <label>City</label>
-    <select id="city-select" disabled><option value="">Select city…</option></select>
-  </div>
-  <div id="city-badge"></div>
-</div>
 
-<div id="venue-legend">
-  <h3>Prague Venues</h3>
-  <div class="leg"><div class="sw" style="background:rgba(251,191,36,0.9)"></div>Exceptional</div>
-  <div class="leg"><div class="sw" style="background:rgba(129,140,248,0.9)"></div>Great</div>
-  <div class="leg"><div class="sw" style="background:rgba(148,163,184,0.9)"></div>Good</div>
-  <div class="leg"><div class="sw" style="background:rgba(52,211,153,0.9)"></div>New</div>
+  <div id="venue-legend">
+    <h3>Prague Venues</h3>
+    <div class="leg"><div class="sw" style="background:rgba(251,191,36,0.9)"></div>Exceptional</div>
+    <div class="leg"><div class="sw" style="background:rgba(129,140,248,0.9)"></div>Great</div>
+    <div class="leg"><div class="sw" style="background:rgba(148,163,184,0.9)"></div>Good</div>
+    <div class="leg"><div class="sw" style="background:rgba(52,211,153,0.9)"></div>New</div>
+  </div>
+
+  <div id="cand-legend">
+    <h4>Candidate Status</h4>
+    <div class="cl"><div class="cd" style="background:#fbbf24"></div>Published</div>
+    <div class="cl"><div class="cd" style="background:#22c55e"></div>Approved</div>
+    <div class="cl"><div class="cd" style="background:#f97316"></div>Needs Review</div>
+    <div class="cl"><div class="cd" style="background:#ec4899"></div>Needs Visit</div>
+    <div class="cl"><div class="cd" style="background:#8b5cf6"></div>Human Observed</div>
+    <div class="cl"><div class="cd" style="background:#3b82f6"></div>Source Backed</div>
+    <div class="cl"><div class="cd" style="background:#f59e0b"></div>Needs Match</div>
+    <div class="cl"><div class="cd" style="background:#64748b"></div>Stub</div>
+    <div class="cl"><div class="cd" style="background:#ef4444"></div>Rejected</div>
+  </div>
 </div>
 
 <div id="hint">drag to rotate &nbsp;·&nbsp; scroll to zoom &nbsp;·&nbsp; double-click to reset</div>
@@ -2555,19 +2587,6 @@ async function submitVenue() {
   </div>
 </div>
 
-<!-- ── Candidate status legend ──────────────────────────────────────── -->
-<div id="cand-legend">
-  <h4>Candidate Status</h4>
-  <div class="cl"><div class="cd" style="background:#fbbf24"></div>Published</div>
-  <div class="cl"><div class="cd" style="background:#22c55e"></div>Approved</div>
-  <div class="cl"><div class="cd" style="background:#f97316"></div>Needs Review</div>
-  <div class="cl"><div class="cd" style="background:#ec4899"></div>Needs Visit</div>
-  <div class="cl"><div class="cd" style="background:#8b5cf6"></div>Human Observed</div>
-  <div class="cl"><div class="cd" style="background:#3b82f6"></div>Source Backed</div>
-  <div class="cl"><div class="cd" style="background:#f59e0b"></div>Needs Match</div>
-  <div class="cl"><div class="cd" style="background:#64748b"></div>Stub</div>
-  <div class="cl"><div class="cd" style="background:#ef4444"></div>Rejected</div>
-</div>
 
 </body>
 </html>
