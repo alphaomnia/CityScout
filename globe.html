@@ -1082,6 +1082,17 @@ function geocodeAndAddVenues(country) {
     }).addTo(lMap).bindPopup(venuePopupHtml(node, col), {
       maxWidth: 290, className: 'venue-popup'
     });
+    // In candidate mode: suppress popup and open review sidebar instead
+    vm.on('click', function() {
+      if (!candMode) return;
+      vm.closePopup();
+      const c = candMap.get(node.name);
+      if (c) { openReviewPanel(c); return; }
+      // Candidate not loaded yet (different city filter) — fetch by name
+      fetch(`${API}/candidates?search=${encodeURIComponent(node.name)}&limit=1`)
+        .then(r => r.json())
+        .then(d => { if (d.items?.length) openReviewPanel(d.items[0]); });
+    });
     lMapLayers.push(vm);
   }
 }
@@ -1930,11 +1941,13 @@ const STATUS_LABEL = {
 };
 
 let candMarkers   = [];   // L.circleMarker instances for candidate mode
-let activeCand    = null; // currently selected candidate object
-let candMode      = false;
-let candFilter    = { status: '', search: '' };
-let activeCity    = null; // {name, lat, lng} of current map city
-let activeCountry = null;
+let activeCand      = null;  // currently selected candidate object
+let editingCandidate = null; // set when venue modal is in edit mode
+let candMode        = false;
+let candFilter      = { status: '', search: '' };
+let activeCity      = null;
+let activeCountry   = null;
+let candMap         = new Map(); // canonical_name → candidate; for venue pin lookup
 
 // ── Toolbar wiring ──────────────────────────────────────────────────────
 function showCandToolbar() {
@@ -1983,7 +1996,9 @@ async function loadCandidates() {
   document.getElementById('cand-stats').textContent =
     `${data.total} candidates · ${data.items.filter(c=>c.lat).length} mapped`;
 
+  candMap.clear();
   for (const c of data.items) {
+    candMap.set(c.canonical_name, c); // index for venue-pin click lookup
     if (!c.lat || !c.lng) continue;
     const col = STATUS_COLOR[c.candidate_status] || '#64748b';
     const m   = L.circleMarker([c.lat, c.lng], {
@@ -2056,8 +2071,9 @@ async function openReviewPanel(cand) {
         <button class="btn-visit"   onclick="doDecision('needs_visit','needs_visit')">🔍 Needs Visit</button>
         <button class="btn-review"  onclick="doDecision('needs_review','status_change')">⏸ Needs Review</button>
         <button class="btn-reject"  onclick="doDecision('rejected','rejection')">✕ Reject</button>
-      ` : `<p style="color:#475569;font-size:11px;text-align:center">This candidate is <strong>${full.candidate_status}</strong> — no further actions.</p>`}
+      ` : ''}
       <button class="btn-review" style="background:#1e293b;color:#818cf8" onclick="openObsModal()">+ Log Observation</button>
+      <button class="btn-review" style="background:#1e293b;color:#e2e8f0" onclick="openVenueModal(activeCand)">✏ Edit Details</button>
     </div>`;
 }
 
@@ -2278,26 +2294,49 @@ async function runCsvImport() {
 }
 
 // ── Add single venue modal ───────────────────────────────────────────────
-function openVenueModal() {
+function openVenueModal(candidate) {
+  editingCandidate = candidate || null;
+  const c = candidate || {};
+  const tags = Array.isArray(c.tags) ? c.tags.join(', ') : (c.tags || '');
+
   document.getElementById('venue-modal-bg').classList.add('open');
-  document.getElementById('vm-name').value       = '';
-  document.getElementById('vm-city').value       = activeCity?.name    || 'Prague';
-  document.getElementById('vm-country').value    = activeCountry       || 'Czech Republic';
-  document.getElementById('vm-slug').value       = '';
-  document.getElementById('vm-desc').value       = '';
-  document.getElementById('vm-address').value    = '';
-  document.getElementById('vm-lat').value        = '';
-  document.getElementById('vm-lng').value        = '';
-  document.getElementById('vm-tags').value       = '';
-  document.getElementById('vm-image').value      = '';
-  document.getElementById('vm-err').textContent  = '';
+  document.getElementById('vm-name').value    = c.canonical_name || '';
+  document.getElementById('vm-city').value    = c.city     || activeCity?.name    || 'Prague';
+  document.getElementById('vm-country').value = c.country  || activeCountry       || 'Czech Republic';
+  document.getElementById('vm-slug').value    = c.slug     || '';
+  document.getElementById('vm-desc').value    = c.description || '';
+  document.getElementById('vm-address').value = c.address  || '';
+  document.getElementById('vm-lat').value     = c.lat      || '';
+  document.getElementById('vm-lng').value     = c.lng      || '';
+  document.getElementById('vm-tags').value    = tags;
+  document.getElementById('vm-image').value   = c.image_url || '';
+  document.getElementById('vm-err').textContent = '';
+
+  // Pre-select dropdowns
+  ['vm-category','vm-tier','vm-food','vm-dining','vm-seating'].forEach(id => {
+    const field = {
+      'vm-category': c.category, 'vm-tier': c.tier,
+      'vm-food': c.food_type,    'vm-dining': c.dining_type, 'vm-seating': c.seating
+    }[id] || '';
+    const el = document.getElementById(id);
+    [...el.options].forEach(o => o.selected = (o.value === field));
+  });
+
+  // Update modal title and submit button text
+  document.querySelector('#venue-modal h3').textContent =
+    candidate ? 'Edit Venue Details' : 'Add New Venue';
+  document.querySelector('#venue-modal .btn-submit').textContent =
+    candidate ? 'Save Changes' : 'Save as Stub';
 }
+
 function closeVenueModal() {
   document.getElementById('venue-modal-bg').classList.remove('open');
+  editingCandidate = null;
 }
-// Auto-generate slug from name
+
+// Auto-generate slug from name (only when creating, not editing)
 document.addEventListener('input', e => {
-  if (e.target.id === 'vm-name') {
+  if (e.target.id === 'vm-name' && !editingCandidate) {
     const slug = e.target.value.toLowerCase().trim()
       .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
     document.getElementById('vm-slug').value = slug;
@@ -2311,36 +2350,72 @@ async function submitVenue() {
   const tagsRaw = document.getElementById('vm-tags').value;
   const tags    = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
 
-  const body = {
-    name,
-    city:            document.getElementById('vm-city').value.trim()    || 'Prague',
-    country:         document.getElementById('vm-country').value.trim() || 'Czech Republic',
-    description:     document.getElementById('vm-desc').value.trim()    || null,
-    category:        document.getElementById('vm-category').value       || null,
-    tier:            document.getElementById('vm-tier').value           || null,
-    address:         document.getElementById('vm-address').value.trim() || null,
-    coordinates_lat: parseFloat(document.getElementById('vm-lat').value) || null,
-    coordinates_lng: parseFloat(document.getElementById('vm-lng').value) || null,
-    food_type:       document.getElementById('vm-food').value           || null,
-    dining_type:     document.getElementById('vm-dining').value         || null,
-    seating:         document.getElementById('vm-seating').value        || null,
-    image_url:       document.getElementById('vm-image').value.trim()   || null,
-    slug:            document.getElementById('vm-slug').value.trim()    || null,
-    tags,
-  };
+  document.getElementById('vm-err').textContent = '';
 
-  try {
-    const r = await fetch(`${API}/venues`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    });
-    if (!r.ok) {
-      const err = await r.json();
-      document.getElementById('vm-err').textContent = err.detail || 'Error saving venue.';
-      return;
-    }
-    closeVenueModal();
-    loadCandidates();
-  } catch(e) { document.getElementById('vm-err').textContent = e.message; }
+  if (editingCandidate) {
+    // ── PATCH: update existing candidate fields ──────────────────────
+    const body = {
+      canonical_name: name,
+      description:    document.getElementById('vm-desc').value.trim()    || null,
+      category:       document.getElementById('vm-category').value       || null,
+      tier:           document.getElementById('vm-tier').value           || null,
+      address:        document.getElementById('vm-address').value.trim() || null,
+      lat:            parseFloat(document.getElementById('vm-lat').value)  || null,
+      lng:            parseFloat(document.getElementById('vm-lng').value)  || null,
+      food_type:      document.getElementById('vm-food').value           || null,
+      dining_type:    document.getElementById('vm-dining').value         || null,
+      seating:        document.getElementById('vm-seating').value        || null,
+      image_url:      document.getElementById('vm-image').value.trim()   || null,
+      slug:           document.getElementById('vm-slug').value.trim()    || null,
+      tags,
+    };
+    try {
+      const r = await fetch(`${API}/candidates/${editingCandidate.candidate_id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const err = await r.json();
+        document.getElementById('vm-err').textContent = err.detail || 'Error saving.';
+        return;
+      }
+      const updated = await r.json();
+      closeVenueModal();
+      loadCandidates();
+      openReviewPanel(updated); // refresh sidebar with new values
+    } catch(e) { document.getElementById('vm-err').textContent = e.message; }
+
+  } else {
+    // ── POST: create new venue stub ──────────────────────────────────
+    const body = {
+      name,
+      city:            document.getElementById('vm-city').value.trim()    || 'Prague',
+      country:         document.getElementById('vm-country').value.trim() || 'Czech Republic',
+      description:     document.getElementById('vm-desc').value.trim()    || null,
+      category:        document.getElementById('vm-category').value       || null,
+      tier:            document.getElementById('vm-tier').value           || null,
+      address:         document.getElementById('vm-address').value.trim() || null,
+      coordinates_lat: parseFloat(document.getElementById('vm-lat').value) || null,
+      coordinates_lng: parseFloat(document.getElementById('vm-lng').value) || null,
+      food_type:       document.getElementById('vm-food').value           || null,
+      dining_type:     document.getElementById('vm-dining').value         || null,
+      seating:         document.getElementById('vm-seating').value        || null,
+      image_url:       document.getElementById('vm-image').value.trim()   || null,
+      slug:            document.getElementById('vm-slug').value.trim()    || null,
+      tags,
+    };
+    try {
+      const r = await fetch(`${API}/venues`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const err = await r.json();
+        document.getElementById('vm-err').textContent = err.detail || 'Error saving venue.';
+        return;
+      }
+      closeVenueModal();
+      loadCandidates();
+    } catch(e) { document.getElementById('vm-err').textContent = e.message; }
+  }
 }
 
 </script>

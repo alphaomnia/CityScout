@@ -285,6 +285,57 @@ def update_candidate_status(candidate_id: str, body: CandidateStatusUpdate):
     db.close()
     return updated
 
+# ── Candidate field update (non-status fields) ───────────────────────────────
+
+class CandidateFieldUpdate(BaseModel):
+    canonical_name: Optional[str]   = None
+    description:    Optional[str]   = None
+    category:       Optional[str]   = None
+    tier:           Optional[str]   = None
+    address:        Optional[str]   = None
+    lat:            Optional[float] = None
+    lng:            Optional[float] = None
+    food_type:      Optional[str]   = None
+    dining_type:    Optional[str]   = None
+    seating:        Optional[str]   = None
+    image_url:      Optional[str]   = None
+    tags:           Optional[list]  = None
+    slug:           Optional[str]   = None
+
+@app.patch("/candidates/{candidate_id}")
+def update_candidate_fields(candidate_id: str, body: CandidateFieldUpdate):
+    db  = get_db()
+    row = db.execute("SELECT * FROM candidate WHERE candidate_id=?", (candidate_id,)).fetchone()
+    if not row:
+        db.close()
+        raise HTTPException(404, "Candidate not found")
+
+    fields = {}
+    if body.canonical_name is not None: fields["canonical_name"] = body.canonical_name
+    if body.description    is not None: fields["description"]    = body.description
+    if body.category       is not None: fields["category"]       = body.category
+    if body.tier           is not None: fields["tier"]           = body.tier
+    if body.address        is not None: fields["address"]        = body.address
+    if body.lat            is not None: fields["lat"]            = body.lat
+    if body.lng            is not None: fields["lng"]            = body.lng
+    if body.food_type      is not None: fields["food_type"]      = body.food_type
+    if body.dining_type    is not None: fields["dining_type"]    = body.dining_type
+    if body.seating        is not None: fields["seating"]        = body.seating
+    if body.image_url      is not None: fields["image_url"]      = body.image_url
+    if body.tags           is not None: fields["tags"]           = json.dumps(body.tags)
+    if body.slug           is not None: fields["slug"]           = body.slug
+
+    if fields:
+        fields["updated_at"] = now()
+        set_clause = ", ".join(f"{k}=?" for k in fields)
+        db.execute(f"UPDATE candidate SET {set_clause} WHERE candidate_id=?",
+                   list(fields.values()) + [candidate_id])
+        db.commit()
+
+    result = row_to_dict(db.execute("SELECT * FROM candidate WHERE candidate_id=?", (candidate_id,)).fetchone())
+    db.close()
+    return result
+
 # ── CSV template download ────────────────────────────────────────────────────
 
 # Exact column order matching the Lovable/Supabase establishments export.
