@@ -26,8 +26,9 @@ app.add_middleware(
 # ── DB helpers ──────────────────────────────────────────────────────────────
 
 def get_db():
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(DB_PATH, timeout=15)
     db.row_factory = sqlite3.Row
+    db.execute("PRAGMA journal_mode=WAL")
     db.execute("PRAGMA foreign_keys=ON")
     return db
 
@@ -345,8 +346,8 @@ async def import_csv(file: UploadFile = File(...)):
     err_msgs = []
 
     for row in rows:
-        # Strip BOM/whitespace from keys
-        row  = {k.strip().lstrip('﻿'): (v or '').strip() for k, v in row.items()}
+        # Strip BOM/whitespace from keys; skip None keys (overflow cols from unquoted commas)
+        row  = {k.strip().lstrip('﻿'): (v or '').strip() for k, v in row.items() if k is not None}
         name = row.get("name", "")
         if not name:
             skipped += 1
