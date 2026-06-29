@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CityScout — Earth City Density</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f172a; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
+  canvas { display: block; }
+
+  #loading {
+    position: fixed; inset: 0; background: #0f172a;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 100; color: #e2e8f0; gap: 16px;
+  }
+  #loading h2 {
+    font-size: 13px; letter-spacing: 4px; text-transform: uppercase; color: #475569;
+  }
+  #progress { width: 180px; height: 2px; background: #1e293b; border-radius: 1px; }
+  #progress-fill {
+    height: 100%; width: 0; background: #6366f1; border-radius: 1px; transition: width 0.2s;
+  }
+
+  #legend {
+    position: fixed; bottom: 24px; right: 24px;
+    background: rgba(15,23,42,0.85); border: 1px solid rgba(255,255,255,0.07);
+    padding: 14px 18px; border-radius: 10px;
+    color: #94a3b8; font-size: 11px; backdrop-filter: blur(6px);
+    pointer-events: none;
+  }
+  #legend h3 {
+    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+    color: #334155; margin-bottom: 9px;
+  }
+  .leg { display: flex; align-items: center; gap: 9px; margin: 4px 0; }
+  .sw  { width: 18px; height: 8px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.08); }
+
+  #venue-legend {
+    position: fixed; bottom: 24px; left: 24px;
+    background: rgba(15,23,42,0.85); border: 1px solid rgba(255,255,255,0.07);
+    padding: 14px 18px; border-radius: 10px;
+    color: #94a3b8; font-size: 11px; backdrop-filter: blur(6px);
+    pointer-events: none;
+  }
+  #venue-legend h3 {
+    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+    color: #334155; margin-bottom: 9px;
+  }
+
+  #explore-panel {
+    position: fixed; top: 24px; left: 24px;
+    background: rgba(15,23,42,0.88); border: 1px solid rgba(255,255,255,0.07);
+    padding: 14px 18px; border-radius: 10px; backdrop-filter: blur(6px);
+    z-index: 1200; min-width: 200px; color: #94a3b8; font-size: 11px;
+  }
+  #explore-panel h3 {
+    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+    color: #334155; margin-bottom: 10px;
+  }
+  .ep-row { margin: 7px 0; display: flex; flex-direction: column; gap: 4px; }
+  .ep-row label {
+    font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: #475569;
+  }
+  .ep-row select {
+    background: rgba(30,41,59,0.95); border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 5px; color: #e2e8f0; font-size: 11px; padding: 5px 8px;
+    outline: none; cursor: pointer; font-family: inherit; width: 100%;
+  }
+  .ep-row select:disabled { opacity: 0.35; cursor: default; }
+  .ep-row select option { background: #1e293b; }
+  #city-badge {
+    margin-top: 9px; font-size: 10px; color: #64748b; min-height: 14px;
+  }
+
+  #hint {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    color: #1e293b; font-size: 11px; letter-spacing: 1px;
+    pointer-events: none; font-family: monospace;
+    transition: color 0.5s;
+  }
+  #hint.visible { color: #334155; }
+
+  #country-view-header {
+    position: fixed; top: 0; left: 0; right: 0; height: 52px;
+    background: rgba(15,23,42,0.94); border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: none; align-items: center; padding: 0 24px; gap: 16px;
+    z-index: 1100; backdrop-filter: blur(8px);
+  }
+  #btn-back {
+    background: rgba(30,41,59,0.95); border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 6px; color: #94a3b8; font-size: 11px; padding: 6px 14px;
+    cursor: pointer; font-family: inherit; letter-spacing: 0.5px;
+    transition: background 0.15s, color 0.15s;
+  }
+  #btn-back:hover { background: rgba(51,65,85,0.95); color: #e2e8f0; }
+  #country-name-title {
+    font-size: 14px; font-weight: 600; color: #e2e8f0; letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  #country-city-list { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .city-pin-badge {
+    font-size: 10px; color: #64748b; background: rgba(30,41,59,0.8);
+    padding: 3px 9px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);
+    letter-spacing: 0.5px;
+  }
+  .city-pin-badge.has-venues { color: #fbbf24; border-color: rgba(251,191,36,0.25); }
+
+  #map-view {
+    display: none; position: fixed; inset: 52px 0 0 0; z-index: 5;
+  }
+  /* Leaflet customisation — dark theme */
+  .leaflet-container { background: #0f172a; font-family: system-ui, -apple-system, sans-serif; }
+  .leaflet-control-zoom a {
+    background: rgba(15,23,42,0.92) !important; color: #94a3b8 !important;
+    border-color: rgba(255,255,255,0.10) !important;
+  }
+  .leaflet-control-zoom a:hover { color: #e2e8f0 !important; }
+  .leaflet-tooltip {
+    background: rgba(15,23,42,0.90); border: 1px solid rgba(255,255,255,0.08);
+    color: #cbd5e1; font-size: 11px; border-radius: 5px;
+    backdrop-filter: blur(4px); box-shadow: none;
+  }
+  .leaflet-tooltip::before { display: none; }
+  .leaflet-popup-content-wrapper {
+    background: rgba(15,23,42,0.97); border: 1px solid rgba(255,255,255,0.10);
+    color: #e2e8f0; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+    padding: 0;
+  }
+  .leaflet-popup-tip { background: rgba(15,23,42,0.97); }
+  .leaflet-popup-content { font-size: 12px; line-height: 1.6; margin: 14px 14px 12px; }
+  .leaflet-popup-content b { color: #e2e8f0; }
+  .leaflet-popup-close-button { color: #64748b !important; top: 8px !important; right: 10px !important; font-size: 18px !important; }
+  .venue-popup .leaflet-popup-content { margin: 10px 12px 12px; }
+  .venue-tier-pill {
+    display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px;
+    margin-top: 3px; font-weight: 600; letter-spacing: 0.3px;
+  }
+  #map-region-load {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(15,23,42,0.85); border: 1px solid rgba(255,255,255,0.07);
+    padding: 7px 16px; border-radius: 6px; color: #64748b; font-size: 11px;
+    z-index: 1300; display: none; pointer-events: none; letter-spacing: 0.5px;
+  }
+
+  /* ── Candidate mode toolbar ─────────────────────────────────── */
+  #cand-toolbar {
+    position: fixed; top: 52px; left: 0; right: 0; height: 44px;
+    background: rgba(10,18,36,0.97); border-bottom: 1px solid rgba(255,255,255,0.07);
+    display: none; align-items: center; gap: 10px; padding: 0 16px;
+    z-index: 1100;
+  }
+  #cand-toolbar label { font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: .8px; }
+  #cand-toolbar select, #cand-toolbar input {
+    background: rgba(30,41,59,0.9); border: 1px solid rgba(255,255,255,0.08);
+    color: #e2e8f0; font-size: 12px; padding: 4px 8px; border-radius: 5px;
+  }
+  #cand-stats {
+    margin-left: auto; font-size: 11px; color: #64748b; white-space: nowrap;
+  }
+  #btn-add-candidate {
+    background: #6366f1; color: #fff; border: none; padding: 5px 12px;
+    border-radius: 5px; font-size: 12px; cursor: pointer; font-weight: 600;
+  }
+  #btn-add-candidate:hover { background: #818cf8; }
+  #btn-alerts {
+    position: relative; background: rgba(30,41,59,0.9); border: 1px solid rgba(255,255,255,0.08);
+    color: #e2e8f0; padding: 4px 10px; border-radius: 5px; font-size: 12px; cursor: pointer;
+  }
+  #alert-badge {
+    position: absolute; top: -5px; right: -5px; background: #ef4444;
+    color: #fff; border-radius: 9px; font-size: 9px; font-weight: 700;
+    padding: 1px 5px; display: none;
+  }
+
+  /* ── Candidate-mode map area shifts down when toolbar is visible ─ */
+  #map-view.cand-mode { top: 96px; }
+
+  /* ── Status colours (candidate map) ────────────────────────────── */
+  .cs-stub          { fill: #64748b; }
+  .cs-needs_match   { fill: #f59e0b; }
+  .cs-source_backed { fill: #3b82f6; }
+  .cs-human_observed{ fill: #8b5cf6; }
+  .cs-needs_review  { fill: #f97316; }
+  .cs-needs_visit   { fill: #ec4899; }
+  .cs-approved      { fill: #22c55e; }
+  .cs-rejected      { fill: #ef4444; }
+  .cs-published     { fill: #fbbf24; }
+
+  /* ── Review slide-in panel ─────────────────────────────────────── */
+  #review-panel {
+    position: fixed; top: 96px; right: 0; bottom: 0; width: 340px;
+    background: #0f1e33; border-left: 1px solid rgba(255,255,255,0.08);
+    z-index: 1050; display: none; flex-direction: column;
+    font-size: 13px; color: #cbd5e1; overflow-y: auto;
+  }
+  #review-panel.open { display: flex; }
+  #review-panel header {
+    padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #review-panel header h3 { font-size: 13px; color: #e2e8f0; font-weight: 600; }
+  #btn-close-review {
+    background: none; border: none; color: #475569; font-size: 20px; cursor: pointer;
+    line-height: 1;
+  }
+  #review-body { padding: 14px 16px; flex: 1; }
+  #review-body img {
+    width: 100%; height: 130px; object-fit: cover; border-radius: 7px; margin-bottom: 10px;
+  }
+  .review-field { margin-bottom: 10px; }
+  .review-field label {
+    display: block; font-size: 10px; text-transform: uppercase;
+    letter-spacing: .7px; color: #475569; margin-bottom: 3px;
+  }
+  .review-field p { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+  .review-actions { display: flex; flex-direction: column; gap: 7px; padding: 0 16px 16px; }
+  .review-actions button {
+    padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    border: none; cursor: pointer; transition: opacity .15s;
+  }
+  .review-actions button:hover { opacity: .85; }
+  .btn-approve  { background: #22c55e; color: #0f172a; }
+  .btn-reject   { background: #ef4444; color: #fff; }
+  .btn-visit    { background: #f59e0b; color: #0f172a; }
+  .btn-review   { background: #6366f1; color: #fff; }
+  .review-reason-wrap { padding: 0 16px 10px; }
+  .review-reason-wrap textarea {
+    width: 100%; height: 60px; background: rgba(30,41,59,.8);
+    border: 1px solid rgba(255,255,255,.08); border-radius: 5px;
+    color: #e2e8f0; font-size: 12px; padding: 7px; resize: none;
+  }
+  .status-chip {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .5px;
+    padding: 2px 8px; border-radius: 4px; text-transform: uppercase;
+  }
+  .history-item {
+    font-size: 11px; color: #475569; border-left: 2px solid #1e293b;
+    padding: 3px 0 3px 8px; margin-bottom: 4px;
+  }
+
+  /* ── Verified review form modal ─────────────────────────────────── */
+  #obs-modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,.65);
+    z-index: 1400; display: none; align-items: center; justify-content: center;
+  }
+  #obs-modal-bg.open { display: flex; }
+  #obs-modal {
+    background: #0f1e33; border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px; width: 460px; max-height: 90vh; overflow-y: auto;
+    padding: 20px; color: #cbd5e1; font-size: 13px;
+  }
+  #obs-modal h3 { font-size: 15px; color: #e2e8f0; margin-bottom: 14px; }
+  .obs-field { margin-bottom: 12px; }
+  .obs-field label {
+    display: block; font-size: 10px; text-transform: uppercase;
+    letter-spacing: .7px; color: #475569; margin-bottom: 4px;
+  }
+  .obs-field input, .obs-field select, .obs-field textarea {
+    width: 100%; background: rgba(30,41,59,.9);
+    border: 1px solid rgba(255,255,255,.08); border-radius: 5px;
+    color: #e2e8f0; font-size: 12px; padding: 7px 9px;
+  }
+  .obs-field textarea { height: 80px; resize: vertical; }
+  .obs-row { display: flex; gap: 10px; }
+  .obs-row .obs-field { flex: 1; }
+  #obs-modal footer {
+    display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;
+  }
+  #obs-modal footer button {
+    padding: 8px 18px; border-radius: 6px; font-size: 12px;
+    font-weight: 600; border: none; cursor: pointer;
+  }
+  .btn-cancel { background: rgba(30,41,59,.9); color: #94a3b8; }
+  .btn-submit { background: #6366f1; color: #fff; }
+
+  /* ── Alert inbox panel ──────────────────────────────────────────── */
+  #alert-panel {
+    position: fixed; top: 96px; left: 50%; transform: translateX(-50%);
+    width: 520px; max-height: 70vh; overflow-y: auto;
+    background: #0f1e33; border: 1px solid rgba(255,255,255,.1);
+    border-radius: 10px; z-index: 1200; display: none; flex-direction: column;
+    font-size: 12px; color: #94a3b8;
+  }
+  #alert-panel.open { display: flex; }
+  #alert-panel header {
+    padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.06);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #alert-panel header h3 { font-size: 13px; color: #e2e8f0; font-weight: 600; }
+  .alert-item {
+    padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,.04);
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .sev-info     { color: #3b82f6; }
+  .sev-warning  { color: #f59e0b; }
+  .sev-high     { color: #f97316; }
+  .sev-critical { color: #ef4444; }
+  .alert-dismiss {
+    margin-left: auto; background: none; border: 1px solid rgba(255,255,255,.07);
+    color: #475569; font-size: 10px; padding: 2px 7px; border-radius: 3px; cursor: pointer;
+  }
+  .alert-dismiss:hover { color: #94a3b8; }
+
+  /* ── Candidate status legend (map bottom-left) ──────────────────── */
+  #cand-legend {
+    position: fixed; bottom: 24px; left: 24px;
+    background: rgba(15,23,42,0.88); border: 1px solid rgba(255,255,255,.07);
+    padding: 12px 16px; border-radius: 9px; font-size: 11px; color: #94a3b8;
+    z-index: 1000; display: none; pointer-events: none;
+  }
+  #cand-legend h4 {
+    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+    color: #334155; margin-bottom: 7px;
+  }
+  .cl { display: flex; align-items: center; gap: 7px; margin: 3px 0; }
+  .cd { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <h2>Loading Earth</h2>
+  <div id="progress"><div id="progress-fill"></div></div>
+</div>
+
+<canvas id="globe"></canvas>
+
+<div id="legend">
+  <h3>City Density</h3>
+  <div class="leg"><div class="sw" style="background:rgba(14,30,58,0.9)"></div>Ocean</div>
+  <div class="leg"><div class="sw" style="background:rgba(90,120,78,0.9)"></div>Very Low</div>
+  <div class="leg"><div class="sw" style="background:rgba(72,108,48,0.9)"></div>Low</div>
+  <div class="leg"><div class="sw" style="background:rgba(180,148,40,0.9)"></div>Medium</div>
+  <div class="leg"><div class="sw" style="background:rgba(185,82,32,0.9)"></div>High</div>
+  <div class="leg"><div class="sw" style="background:rgba(120,20,20,0.9)"></div>Very High</div>
+</div>
+
+<div id="explore-panel">
+  <h3>Explore Cities</h3>
+  <div class="ep-row">
+    <label>Country</label>
+    <select id="country-select"><option value="">Select country…</option></select>
+  </div>
+  <div class="ep-row">
+    <label>City</label>
+    <select id="city-select" disabled><option value="">Select city…</option></select>
+  </div>
+  <div id="city-badge"></div>
+</div>
+
+<div id="venue-legend">
+  <h3>Prague Venues</h3>
+  <div class="leg"><div class="sw" style="background:rgba(251,191,36,0.9)"></div>Exceptional</div>
+  <div class="leg"><div class="sw" style="background:rgba(129,140,248,0.9)"></div>Great</div>
+  <div class="leg"><div class="sw" style="background:rgba(148,163,184,0.9)"></div>Good</div>
+  <div class="leg"><div class="sw" style="background:rgba(52,211,153,0.9)"></div>New</div>
+</div>
+
+<div id="hint">drag to rotate &nbsp;·&nbsp; scroll to zoom &nbsp;·&nbsp; double-click to reset</div>
+
+<div id="map-view"></div>
+<div id="map-region-load">Loading regional borders…</div>
+
+<div id="country-view-header">
+  <button id="btn-back">&#8592; Globe</button>
+  <span id="country-name-title"></span>
+  <div id="country-city-list"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+// ── City density (ISO 3166-1 numeric → score 0–100) ───────────────────────
+const DENSITY = {
+  // Extreme
+  50: 95, 702: 100,
+  // Very High
+  410: 82, 392: 78, 528: 80, 56: 74, 158: 80, 422: 68, 376: 62, 470: 88,
+  // High
+  276: 56, 826: 60, 380: 52, 250: 46, 756: 50, 40: 44, 203: 46,
+  616: 42, 348: 44, 208: 48, 372: 40, 196: 30,
+  // Medium-High
+  356: 38, 704: 32, 608: 42, 642: 30, 804: 30, 724: 36, 620: 34,
+  300: 32, 792: 28, 246: 26, 752: 22, 578: 18,
+  840: 28, 484: 26, 156: 30, 458: 24, 360: 26, 764: 24, 116: 14,
+  // Medium
+  818: 16, 710: 18, 566: 14, 288: 12,
+  76: 22, 32: 18, 152: 16, 170: 14, 604: 12, 862: 18, 192: 28,
+  320: 14, 188: 18, 218: 14, 144: 22, 586: 16, 368: 14, 364: 14,
+  682: 10, 784: 16, 400: 12, 760: 10,
+  // Low
+  36: 8, 554: 10, 124: 6, 643: 6, 504: 10, 788: 8, 12: 6, 434: 3,
+  231: 8, 404: 10, 800: 10, 646: 10, 716: 10, 834: 8,
+  // Very Low
+  496: 2, 398: 4, 795: 2, 860: 4, 180: 5, 24: 5, 508: 5, 516: 3,
+  72: 3, 140: 3, 148: 2, 562: 3, 466: 4, 478: 3, 706: 3,
+  736: 5, 450: 5, 894: 5, 854: 4,
+};
+const POLAR = new Set([304, 10, 260]);
+
+// Density tiers — dark-background-calibrated fills, exact values from investbot palette
+const TIERS = [
+  { min: 60, fill: "rgba(120,20,20,0.62)"  },   // Very High — crimson
+  { min: 30, fill: "rgba(185,82,32,0.60)"  },   // High      — burnt orange
+  { min: 15, fill: "rgba(180,148,40,0.60)" },   // Medium    — gold
+  { min: 5,  fill: "rgba(72,108,48,0.58)"  },   // Low       — forest green
+  { min: 0,  fill: "rgba(90,120,78,0.56)"  },   // Very Low  — sage green
+];
+
+function getTier(id) {
+  if (POLAR.has(id)) return 4;
+  const d = DENSITY[id] ?? 4;
+  for (let i = 0; i < TIERS.length; i++) if (d >= TIERS[i].min) return i;
+  return TIERS.length - 1;
+}
+
+// ── Sphere projection ──────────────────────────────────────────────────────
+function lonLatToSphere(lon, lat) {
+  const lo = lon * Math.PI / 180;
+  const la = lat * Math.PI / 180;
+  const c  = Math.cos(la);
+  return [c * Math.cos(lo), Math.sin(la), c * Math.sin(lo)];
+}
+
+// Pre-built geometry — filled once after world JSON loads
+let TIER_FILLS  = null; // Ring[][] indexed by tier
+let ALL_OUTLINES = null; // Ring[]
+
+function buildCountryData(world) {
+  const geo       = topojson.feature(world, world.objects.countries);
+  const tierFills = TIERS.map(() => []);
+  const outlines  = [];
+  const cRings    = {};
+
+  function addRing(coords, isOuter, tier, id) {
+    const ring = coords.map(([lo, la]) => lonLatToSphere(lo, la));
+    outlines.push(ring);
+    if (isOuter) {
+      tierFills[tier].push(ring);
+      if (!cRings[id]) cRings[id] = [];
+      cRings[id].push(ring);
+    }
+  }
+
+  for (const f of geo.features) {
+    const id   = +f.id;
+    const tier = getTier(id);
+    const g    = f.geometry;
+    if (!g) continue;
+    if (g.type === "Polygon") {
+      g.coordinates.forEach((r, i) => addRing(r, i === 0, tier, id));
+    } else if (g.type === "MultiPolygon") {
+      g.coordinates.forEach(poly => poly.forEach((r, i) => addRing(r, i === 0, tier, id)));
+    }
+  }
+  return { tierFills, outlines, countryRings: cRings };
+}
+
+// ── UTC-calibrated initial rotation ──────────────────────────────────────
+// Sets globe so the correct daylit hemisphere faces the viewer at load time.
+function utcInitialRotY() {
+  const now     = new Date();
+  const utcSecs = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds();
+  return (0.5 - utcSecs / 86400) * 2 * Math.PI - Math.PI / 2;
+}
+
+// Approximate solar declination for today's day-of-year (±23.45°).
+function solarDeclination() {
+  const now    = new Date();
+  const start  = new Date(now.getUTCFullYear(), 0, 0);
+  const doy    = Math.floor((now - start) / 86400000);
+  return -23.45 * Math.cos(2 * Math.PI * (doy + 10) / 365) * (Math.PI / 180);
+}
+
+// ── Starfield (200 twinkling stars, fixed fractional positions) ────────────
+const NUM_STARS = 200;
+const STARS = Array.from({ length: NUM_STARS }, () => ({
+  xf: Math.random(), yf: Math.random(),
+  r:  0.4 + Math.random() * 1.0,
+  tp: Math.random() * Math.PI * 2,
+  ts: 0.5 + Math.random() * 1.2,
+  b:  0.30 + Math.random() * 0.55,
+}));
+
+// ── European city satellites (orbit rings around the globe) ───────────────
+// Inclinations 33–85° keep orbits in the mid-latitude band matching Europe.
+// Phases evenly spaced at 2π/12 ≈ 0.524 rad so satellites don't bunch up.
+const CITIES = [
+  { name: "London",    inc: 52, phase: 0.00, spd: 0.29, rf: 1.18 },
+  { name: "Paris",     inc: 38, phase: 0.52, spd: 0.34, rf: 1.28 },
+  { name: "Berlin",    inc: 65, phase: 1.05, spd: 0.26, rf: 1.40 },
+  { name: "Rome",      inc: 44, phase: 1.57, spd: 0.31, rf: 1.18 },
+  { name: "Madrid",    inc: 72, phase: 2.09, spd: 0.22, rf: 1.54 },
+  { name: "Amsterdam", inc: 55, phase: 2.62, spd: 0.20, rf: 1.28 },
+  { name: "Vienna",    inc: 80, phase: 3.14, spd: 0.28, rf: 1.68 },
+  { name: "Warsaw",    inc: 48, phase: 3.67, spd: 0.24, rf: 1.40 },
+  { name: "Barcelona", inc: 33, phase: 4.19, spd: 0.33, rf: 1.54 },
+  { name: "Athens",    inc: 60, phase: 4.71, spd: 0.19, rf: 1.28 },
+  { name: "Stockholm",  inc: 85, phase: 5.24, spd: 0.21, rf: 1.18 },
+  { name: "Lisbon",     inc: 42, phase: 5.76, spd: 0.27, rf: 1.68 },
+  { name: "Prague",     inc: 63, phase: 0.26, spd: 0.32, rf: 1.40 },
+  { name: "Copenhagen", inc: 76, phase: 0.78, spd: 0.23, rf: 1.54 },
+];
+const cityPhases = CITIES.map(c => c.phase);
+
+// ── Prague venue data — dist: L=Letná, H=Holešovice, T=Tržnice, K=Karlín, B=Libeň
+const VENUES = [
+  {name:"Bistro Proti Proudu",tier:"Great",dist:"K"},{name:"L'objet trouve",tier:"New",dist:"L"},
+  {name:"Hong Kong",tier:"Great",dist:"K"},{name:"Cobra",tier:"Great",dist:"H"},
+  {name:"Crème de la Crème - Holečovice",tier:"Great",dist:"H"},{name:"Pizza Gatto Nero Letná",tier:"New",dist:"L"},
+  {name:"Kafe Francin",tier:"Great",dist:"L"},{name:"Osada",tier:"Exceptional",dist:"L"},
+  {name:"Slice Slice Baby Pizza Club",tier:"Exceptional",dist:"L"},{name:"Sip Sip Hooray",tier:"New",dist:"L"},
+  {name:"Big Smokers",tier:"Exceptional",dist:"L"},{name:"Mexicka",tier:"Great",dist:"L"},
+  {name:"Supernova Bakehouse",tier:"Exceptional",dist:"L"},{name:"The Miners Coffee Komunardů",tier:"Good",dist:"H"},
+  {name:"Pekárna Skýva",tier:"Great",dist:"L"},{name:"La Forme Holesovice",tier:"Good",dist:"H"},
+  {name:"SaSaZu",tier:"Great",dist:"T"},{name:"Kafe na zastávce",tier:"Good",dist:"L"},
+  {name:"PRU58",tier:"Good",dist:"H"},{name:"EMA espresso bar",tier:"Good",dist:"K"},
+  {name:"Vnitroblok",tier:"Great",dist:"H"},{name:"Home Kitchen",tier:"Great",dist:"H"},
+  {name:"The Winery",tier:"Exceptional",dist:"L"},{name:"Naše Toustárna",tier:"Good",dist:"L"},
+  {name:"Čtyřka",tier:"Good",dist:"L"},{name:"Coffee Room - Holešovice",tier:"Good",dist:"H"},
+  {name:"Phill's Corner",tier:"Good",dist:"L"},{name:"TVEE Coffee",tier:"Good",dist:"L"},
+  {name:"Polepšovna",tier:"Great",dist:"L"},{name:"Svááča",tier:"Good",dist:"L"},
+  {name:"The Eatery",tier:"Great",dist:"H"},{name:"Knihkopec",tier:"Good",dist:"L"},
+  {name:"Pivovar Kolkovna",tier:"Good",dist:"H"},{name:"Kontejner",tier:"Good",dist:"H"},
+  {name:"FATFUCK - Smash Burgers",tier:"Exceptional",dist:"L"},{name:"Crêperie U Slepé kočičky",tier:"Good",dist:"L"},
+  {name:"Letna beer garden",tier:"Good",dist:"L"},{name:"Mr. Hot Dog",tier:"Exceptional",dist:"L"},
+  {name:"Cafe Letka",tier:"Great",dist:"L"},{name:"Peperincino",tier:"Good",dist:"L"},
+  {name:"Amato Gelateria",tier:"Good",dist:"L"},{name:"Burgerman",tier:"New",dist:"H"},
+  {name:"Ristorantino da Matteo",tier:"Exceptional",dist:"H"},{name:"Ye's Cafe",tier:"Great",dist:"L"},
+  {name:"Terasa 67",tier:"Good",dist:"L"},{name:"Acid Coffee",tier:"Good",dist:"H"},
+  {name:"Prosekárna Letná",tier:"Great",dist:"L"},{name:"Hillbilly",tier:"Good",dist:"L"},
+  {name:"Sandwich Rodeo",tier:"Great",dist:"H"},{name:"Stejkárna Holešovice",tier:"Good",dist:"H"},
+  {name:"Kavárna Liberál",tier:"Good",dist:"L"},{name:"Letec espresso bar",tier:"Great",dist:"L"},
+  {name:"Cafe Cruz",tier:"Great",dist:"L"},{name:"The Miners Coffee Letna",tier:"Good",dist:"L"},
+  {name:"Teplá kačka",tier:"Good",dist:"H"},{name:"Onigirazu",tier:"Good",dist:"L"},
+  {name:"hrnek",tier:"Great",dist:"L"},{name:"Kolektor",tier:"Great",dist:"H"},
+  {name:"BON Ramen",tier:"Good",dist:"L"},{name:"Chutnej",tier:"Good",dist:"L"},
+  {name:"Pilot Cafe Letná",tier:"Good",dist:"L"},{name:"moe",tier:"Good",dist:"L"},
+  {name:"Las Adelitas (Letná)",tier:"Good",dist:"L"},{name:"Cork",tier:"New",dist:"L"},
+  {name:"Sally O'Brien's Irish Pub",tier:"Good",dist:"L"},{name:"Myšák - Holešovická tržnice",tier:"Exceptional",dist:"T"},
+  {name:"Spojka",tier:"Good",dist:"K"},{name:"Mensa",tier:"New",dist:"L"},
+  {name:"FUEL bistro",tier:"Good",dist:"K"},{name:"Dva kohouti",tier:"Good",dist:"K"},
+  {name:"The Miners Coffee Bakery",tier:"New",dist:"K"},{name:"Na břehu Rhôny Letná",tier:"Great",dist:"L"},
+  {name:"PIPCA",tier:"Great",dist:"L"},{name:"LOKA",tier:"Great",dist:"L"},
+  {name:"Lokál Hamburk",tier:"Good",dist:"K"},{name:"Kaava",tier:"Good",dist:"K"},
+  {name:"Můj Šálek Kávy",tier:"Great",dist:"K"},{name:"Lokál Nad Stromovkou",tier:"Great",dist:"L"},
+  {name:"format.coffee",tier:"Great",dist:"L"},{name:"Café Tvaroh",tier:"Good",dist:"L"},
+  {name:"Vezmi pivo na klobásu",tier:"New",dist:"H"},{name:"Supernova Bakehouse",tier:"Great",dist:"K"},
+  {name:"Off bistro by Home Kitchen",tier:"New",dist:"K"},{name:"Sugo",tier:"Good",dist:"K"},
+  {name:"Chleba a máslo",tier:"Great",dist:"L"},{name:"ESKA Letna",tier:"Great",dist:"L"},
+  {name:"Matilda",tier:"Great",dist:"L"},{name:"Cukrárna Alchymista",tier:"Great",dist:"L"},
+  {name:"Dos Mundos Café",tier:"Good",dist:"L"},{name:"Matsuri",tier:"New",dist:"H"},
+  {name:"Y'es coffee and wine",tier:"Good",dist:"K"},{name:"Karlínská HolKa",tier:"Good",dist:"K"},
+  {name:"Alf & Bet",tier:"Great",dist:"B"},{name:"Luft",tier:"Good",dist:"H"},
+  {name:"Café Lajka",tier:"Good",dist:"L"},{name:"Klub AVU",tier:"Good",dist:"H"},
+  {name:"Naše maso - Holešovická tržnice",tier:"Exceptional",dist:"T"},{name:"ESKA",tier:"Great",dist:"K"},
+  {name:"Choux Choux",tier:"New",dist:"H"},{name:"Veltlin",tier:"Good",dist:"K"},
+  {name:"TYPIKA Karlín",tier:"Good",dist:"K"},{name:"Etapa",tier:"Great",dist:"K"},
+  {name:"Revír",tier:"Good",dist:"K"},{name:"Bufet",tier:"Good",dist:"K"},
+  {name:"Dear Watson",tier:"Good",dist:"K"},{name:"Favoreat",tier:"New",dist:"K"},
+  {name:"Light Roast Coffee",tier:"Good",dist:"B"},{name:"Lagom bistro",tier:"New",dist:"K"},
+  {name:"Blue fjord",tier:"New",dist:"K"},{name:"Pohostinec Karlín",tier:"Good",dist:"K"},
+  {name:"The Miners Coffee Roastery",tier:"Good",dist:"B"},{name:"Riders coffee",tier:"Good",dist:"K"},
+  {name:"KRO Libeň",tier:"New",dist:"B"},{name:"Krystal bistro",tier:"Good",dist:"K"},
+  {name:"Garage",tier:"Great",dist:"K"}
+];
+
+const VENUE_DETAILS = {
+  "Bistro Proti Proudu": {"desc": "A real originator of Prague’s stripped-down modern brunch movement and still quietly doing it better than many newer polished copies. Minimalist, no-fuss, consistently tasty and deserving extra respect for helping set the tone long before this style was everywhere.", "cat": "Bistro", "addr": "Prague 8 - Karlin, Prague", "food": "Coffee", "din": "Breakfast", "seat": "outdoor", "tags": ["Coffee", "Baked goods", "Brunch", "Breakfast", "Drinks"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-proti-proudu/web-0.jpg", "slug": "p7-proti-proudu"},
+  "L\u2019objet trouve": {"desc": "Stylish new café-bar hybrid that feels part Paris wine nook, part design-conscious Letna hideaway. Coffee and daytime lounging gradually give way to evening glasses and small plates, making this one of those flexible newer spots that works from slow afternoon to casual drinks.", "cat": "Bar", "addr": "Prague 7, Prague", "food": "Wine", "din": "Drinks", "seat": "indoor", "tags": ["Cafe"], "img": "", "slug": "p7-lobjet-trouve"},
+  "Hong Kong": {"desc": "Long-standing Karlín favorite for Asian fusion that manages to stay lively and consistently good years after the hype wave that launched it. Loud room, bold flavors and a menu people keep returning to for dependable group dinners and energetic nights out.", "cat": "Restaurant", "addr": "Prague 8 - Karlin, Prague", "food": "Asian Fusion", "din": "Dinner", "seat": "indoor", "tags": ["Asian Fusion"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-hong-kong/ai-0.png", "slug": "p7-hong-kong"},
+  "Cobra": {"desc": "Trend-setting Holešovice bar known more for lazy brunches and energetic evenings than serious dining. Come for drinks, people and atmosphere first, with select food options if you need to stay longer (or till sunrise).", "cat": "Bar", "addr": "Prague 7, Prague", "food": "Cocktails", "din": "Drinks", "seat": "indoor", "tags": ["Breakfast", "Beer", "Dinner", "Bar", "Wine"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-cobra/web-0.jpg", "slug": "p7-cobra"},
+  "Cr\u00e8me de la Cr\u00e8me - Hole\u010dovice": {"desc": "Fourth outpost of one of Prague’s most trusted artisan gelato name and  the richest scoops in town. Come here for dense creamy ice cream with classic, vegan and sorbet flavors .", "cat": "Ice Cream Shop", "addr": "Prague 7, Prague", "food": "Ice Cream", "din": "Dessert", "seat": "outdoor", "tags": ["Ice cream"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-creme-de-la-creme-holesovice/web-0.webp", "slug": "p7-creme-de-la-creme-holesovice"},
+  "Pizza Gatto Nero Letn\u00e1": {"desc": "New Holešovice opening from the proven Gatto Nero pizza group bringing classic Italian pies into a raw brick space. Small garden, relaxed atmosphere and an easy reliable stop when pizza is the mood.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Pizza", "din": "Dinner", "seat": "indoor", "tags": ["Pizza"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-pizza-gato-nero/web-0.jpg", "slug": "p7-pizza-gato-nero"},
+  "Kafe Francin": {"desc": "Solid neighborhood café that covers more than just coffee with its own roasting, homemade desserts and easy breakfast or lunch options. Good for takeaway, good for sitting down, and one of those dependable local spots you end up returning to.", "cat": "Cafe", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Breakfast", "Lunch"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-cafe-francin/web-0.jpg", "slug": "p7-cafe-francin"},
+  "Osada": {"desc": "One of Holešovice’s top all-round neighborhood staples long before the area became overcrowded with options. Big garden, extra downstairs space, strong coffee, cakes, breakfast, lunch and easy evening drinks — the kind of place that works almost any time of day.", "cat": "Bistro", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Breakfast", "seat": "outdoor", "tags": ["Coffee", "Breakfast", "Lunch"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-osada/web-0.jpg", "slug": "p7-osada"},
+  "Slice Slice Baby Pizza Club": {"desc": "Prague’s top pizza after the team first built a cult following through slices and deliveries. Now a full Pizza Club in Holešovice with the city’s most unique and strongest options, our go to pick when only serious pizza will do.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Pizza", "din": "Dinner", "seat": "outdoor", "tags": ["Pizza"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-slice-slice-baby/web-0.png", "slug": "p7-slice-slice-baby"},
+  "Sip Sip Hooray": {"desc": "New bar from the Slice Slice crew bringing the same cool-factor into cocktails, natural wine and proper beer on tap. Stylish interior, lively crowd and a strong early pick when you want drinks somewhere that still feels a bit ahead of the curve.", "cat": "Bar", "addr": "Prague 7, Prague", "food": "Cocktails", "din": "Drinks", "seat": "indoor", "tags": ["Beer", "Bar", "Wine", "Cocktails"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-sip-sip/web-0.jpg", "slug": "p7-sip-sip"},
+  "Big Smokers": {"desc": "Top choice BBQ respecting Czech local source food. Industrial setting, you can even count on Thanksgiving. From the team behind Mr. HotDog and Sandwhich Rodeo", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "BBQ", "din": "Dinner", "seat": "outdoor", "tags": ["Dinner"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-big-smokers/web-0.png", "slug": "p7-big-smokers"},
+  "Mexicka": {"desc": "A big ambitious Mexican concept in Holešovice built around proper sharing plates, grilled meats, ceviches and a serious mezcal bar. More than burritos and tacos — come here when you want the full loud dinner experience with drinks to match.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Mexican", "din": "Dinner", "seat": "outdoor", "tags": ["Mexican"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-mexicka/web-0.webp", "slug": "p7-mexicka"},
+  "Supernova Bakehouse": {"desc": "Original location of one of Prague’s most hyped modern bakeries doing laminated pastries, savour treats and polished presentation. Off the beaten track, but absolutely worth the detour if you take baked goods seriously.", "cat": "Bakery", "addr": "Prague 7, Prague", "food": "Pastries", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Breakfast", "Bakery"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-supernova-bakehouse/web-0.png", "slug": "p7-supernova-bakehouse"},
+  "The Miners Coffee Komunard\u016f": {"desc": "Newest arrival from Prague’s now nearly unavoidable Miners specialty coffee chain, taking over what used to be a wine bar. The neighborhood hardly needed another polished coffee shop, but the drinks are good, the younger crowd comes, and it remains an easy modern default.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Breakfast", "seat": "outdoor", "tags": ["Coffee", "Breakfast"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-miners-komunardu/web-0.jpg", "slug": "p7-miners-komunardu"},
+  "Pek\u00e1rna Sk\u00fdva": {"desc": "Part of the Vnitroblok family, this is one of the friendliest early-morning bakery stops in Holešovice. Expect excellent bread, homemade ice cream and genuinely warm service that makes it an easy local favorite for breakfast or coffee runs.", "cat": "Bakery", "addr": "Prague 7, Prague", "food": "Pastries", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Breakfast", "Bakery"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-skyva/web-0.jpg", "slug": "p7-skyva"},
+  "La Forme Holesovice": {"desc": "Follow-up to the Prague 6 bakery and spiritual successor to the much-loved Barry Higgel breakfast standard. You still come for one of Prague’s better breakfast setups, quality bread and pastries — just not always the fully stocked pastry paradise you may hope for first thing in the morning.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Pastries", "din": "Breakfast", "seat": "outdoor", "tags": ["Coffee", "Breakfast"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-la-forme-holesovice/web-0.jpg", "slug": "p7-la-forme-holesovice"},
+  "SaSaZu": {"desc": "One of Prague’s long-standing high-end Asian dining institutions set inside a dramatic industrial hall. Sleek date-night atmosphere, consistently refined food and cocktails, smaller portions and a bill that reminds you this is a full evening out rather than a casual dinner.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Asian Fusion", "din": "Dinner", "seat": "indoor", "tags": ["Asian"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-sasazu/web-0.webp", "slug": "p7-sasazu"},
+  "Kafe na zast\u00e1vce": {"desc": "Need an early coffee without making a detour? This tiny tram-stop window does the job exactly as it should. Nothing fancy, just a perfectly solid caffeine rescue right where you need it in the morning.", "cat": "Espresso Bar", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Coffee", "seat": "indoor", "tags": ["Coffee"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-kafe-na-zastavce/web-0.jpg", "slug": "p7-kafe-na-zastavce"},
+  "PRU58": {"desc": "Upscale Asian fusion from the restaurant group behind Café Buddha and Benjamin, bringing polished business-lunch and date-night dining into Holešovice. The menu is still strong and the setting still sleek, even if some of the early wow-factor has softened over time.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Asian Fusion", "din": "Dinner", "seat": "outdoor", "tags": ["Asian"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-pru58/ai-0.png", "slug": "p7-pru58"},
+  "EMA espresso bar": {"desc": "Newest branch of the EMA name that helped build Prague’s third wave coffee culture from the ground up. Expect the same serious coffee, polished pastries, quality bread and cozy modern atmosphere that made the original EMA and Alf & Bet staples for coffee people.", "cat": "Coffee Shop", "addr": "Prague 8 - Karlin, Prague", "food": "Coffee", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Bakery"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-ema-espresso-bar/web-0.jpg", "slug": "p7-ema-espresso-bar"},
+  "Vnitroblok": {"desc": "A legendary industrial hangout for Prague’s younger creative crowd mixing café, food, drinks and flexible event space under one roof. Come for a relaxed afternoon or evening and do not be surprised if dancing, workshops or some art gathering is happening around you.", "cat": "Bistro", "addr": "Prague 7, Prague", "food": "Modern European", "din": "Lunch", "seat": "outdoor", "tags": ["Coffee", "Breakfast", "Beer", "Lunch", "Dinner"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-vnitroblok/web-0.png", "slug": "p7-vnitroblok"},
+  "Home Kitchen": {"desc": "Last proper survivor of the once-beloved Home Kitchen group that used to define cozy casual dining in Prague before Covid hit the chain hard. This Holešovice outpost still keeps much of the original warmth, reliable food quality and easy neighborhood charm that made the concept a local favorite.", "cat": "Bistro", "addr": "Prague 7, Prague", "food": "Modern European", "din": "Lunch", "seat": "outdoor", "tags": ["Coffee", "Breakfast", "Lunch", "Dinner"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-home-kitchen/web-0.jpg", "slug": "p7-home-kitchen"},
+  "The Winery": {"desc": "The sommelier from high end cutting edge Czech restaurant the Eatery has set up this wine spot. Excoect excellent wine, top tier sommelier and great meats and cheese to go with. When in season you can also enjoy oysters.", "cat": "Wine Bar", "addr": "Prague 7, Prague", "food": "Wine", "din": "Drinks", "seat": "indoor", "tags": ["Wine"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-the-winery/web-0.jpg", "slug": "p7-the-winery"},
+  "Na\u0161e Toust\u00e1rna": {"desc": "Original Prague sandwich favorite now relocated from its rougher industrial roots into a more polished new building nearby. Some old charm disappeared with the move, but it remains a dependable area stop for very solid sandwiches when the opening hours cooperate.", "cat": "Bakery", "addr": "Prague 7, Prague", "food": "Bread", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Lunch"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-toustarna/web-0.jpg", "slug": "p7-toustarna"},
+  "\u010cty\u0159ka": {"desc": "Another part of Phil’s local chain. This is a classic Czech pub but you can count on quality of food and drink to go with the local and loud atmosphere. Always good beer in tap and classic Czech meals.", "cat": "Pub", "addr": "Prague 7, Prague", "food": "Beer", "din": "Dinner", "seat": "indoor", "tags": ["Beer", "Czech"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-ctyrka/web-0.png", "slug": "p7-ctyrka"},
+  "Coffee Room - Hole\u0161ovice": {"desc": "Newest location of one of Prague’s original specialty coffee pioneers bringing the same trusted coffee quality into Holešovice. A good everyday caffeine stop, though the takeaway-leaning food offer and cleaner modern space make it slightly less charming than older branches.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Coffee", "seat": "indoor", "tags": ["Coffee"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-coffee-room-holesovice/web-0.jpg", "slug": "p7-coffee-room-holesovice"},
+  "Phill\u2019s Corner": {"desc": "Sister concept to the highly regarded Phill’s Twenty7 with a busier all-day neighborhood feel but much of the same trusted food DNA. Come for strong breakfast and lunch plates, quality baked goods and a dependable café-bistro stop that rarely disappoints.", "cat": "Bistro", "addr": "Prague 7, Prague", "food": "Modern European", "din": "Lunch", "seat": "outdoor", "tags": ["Coffee", "Breakfast", "Beer", "Lunch", "Dinner"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-phils-corner/web-0.jpg", "slug": "p7-phils-corner"},
+  "TVEE Coffee": {"desc": "Cozy owner-run coffee shop with a more personal neighborhood feel than most of Prague’s polished chain cafés. Popular with locals on office breaks, easy for a slower sit-down, and exactly the kind of welcoming spot that quickly builds regulars.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Coffee", "seat": "indoor", "tags": ["Coffee"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-tvee-coffee/web-0.jpg", "slug": "p7-tvee-coffee"},
+  "Polep\u0161ovna": {"desc": "Though still relatively new, Polepšovna has quickly become one of Holešovice’s best after-work beer addresses. Wide Volt beer selection on tap, a kitchen worth arriving hungry for, and enough atmosphere to justify Prague-above-average beer prices when you bring friends.", "cat": "Pivnice", "addr": "Prague 7, Prague", "food": "Beer", "din": "Drinks", "seat": "indoor", "tags": ["Beer", "Lunch", "Dinner", "Bar"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-polepsovna/web-0.jpg", "slug": "p7-polepsovna"},
+  "Sv\u00e1\u00e1\u010da": {"desc": "Perfect little morning stop when you need a quick Czech snack done properly before work or tram. Open-faced egg breads, filled croissants and other local bakery staples, plus a few small seats out back if you have an extra minute.", "cat": "Cafe", "addr": "Prague 7, Prague", "food": "Quick bites", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Breakfast"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-svaaca/web-0.webp", "slug": "p7-svaaca"},
+  "The Eatery": {"desc": "One of Prague’s top modern Czech restaurants pushing local ingredients and classic flavors into true fine dining territory. Open kitchen, serious chef pedigree and Michelin-level respect make this a destination dinner when you want to see how far Czech cuisine can go.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Fine Dining", "din": "Dinner", "seat": "indoor", "tags": ["Czech", "Lunch", "Dinner"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-the-eatery/web-0.jpg", "slug": "p7-the-eatery"},
+  "Knihkopec": {"desc": "Part grungy bookstore, part neighborhood beer garden, and entirely one of Holešovice’s more lovable oddities. Come for a local beer, kind people and an unpolished community atmosphere that feels far more genuine than Prague’s designed café concepts.", "cat": "Beer Garden", "addr": "Prague 7, Prague", "food": "Beer", "din": "Drinks", "seat": "outdoor", "tags": ["Beer", "Beer Garden"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-knihkopec/web-0.jpg", "slug": "p7-knihkopec"},
+  "Pivovar Kolkovna": {"desc": "Part of the classic Czech Kolkovna pub family, but this location adds its own microbrewery for exceptionally fresh beer on tap. No-fuss Czech meals, plenty of (outdoor) seating and an easy rewarding stop before or after a walk through Stromovka.", "cat": "Brewery", "addr": "Prague 7, Prague", "food": "Beer", "din": "Lunch", "seat": "outdoor", "tags": ["Beer", "Czech"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-pivovar-kolkovna/web-0.jpg", "slug": "p7-pivovar-kolkovna"},
+  "Kontejner": {"desc": "Born during Prague’s container café wave but now a fully established Holešovice staple in its own right. Two floors, relaxed seating, good coffee, easy drinks and light food make this one of those flexible neighborhood fallback spots at almost any hour.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Breakfast", "seat": "outdoor", "tags": ["Coffee", "Breakfast"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-kontejner/web-0.jpg", "slug": "p7-kontejner"},
+  "FATFUCK - Smash Burgers": {"desc": "One of Prague’s very best burger stops operating as delivery and takeaway only, hidden in a slightly bizarre back alley setup. No seats, no comfort, just a burger worth making the little journey for when cravings hit properly. If you need to sit you can find a sit-down option in Prague 6.", "cat": "Takeaway", "addr": "Prague 7, Prague", "food": "Burgers", "din": "Dinner", "seat": "counter", "tags": ["Fast food"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-fatfuck-smash-burgers/ai-0.png", "slug": "p7-fatfuck-smash-burgers"},
+  "Cr\u00eaperie U Slep\u00e9 ko\u010di\u010dky": {"desc": "Long-running local institution dedicated almost entirely to sweet and savory crêpes in every imaginable variation. Cozy, slightly old-school and exactly the kind of comforting simple concept that has kept Prague people coming back for years.", "cat": "Cafe", "addr": "Prague 7, Prague", "food": "Crepes", "din": "Lunch", "seat": "indoor", "tags": ["Breakfast", "Lunch"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-u-slepe-kocicky/web-0.png", "slug": "p7-u-slepe-kocicky"},
+  "Letna beer garden": {"desc": "You do not come here for gourmet food or Prague’s best beer, but that has never been the point. This is one of the city’s essential summer drinking rituals, pairing giant communal tables with some of the most unbeatable sunset views in Prague.", "cat": "Beer Garden", "addr": "Prague 7, Prague", "food": "Beer", "din": "Drinks", "seat": "outdoor", "tags": ["Beer"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-letna-beer-garden/web-0.jpg", "slug": "p7-letna-beer-garden"},
+  "Mr. Hot Dog": {"desc": "Local classic that kicked off the American comfort food mini-empire later expanded by Sandwich Rodeo and Big Smokers. Small, busy and reliably satisfying, with sliders and hot dogs that became Prague staples long before everyone started doing smash burgers.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Hot Dogs", "din": "Dinner", "seat": "outdoor", "tags": ["Fast food"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-mr-hot-dog/web-0.jpg", "slug": "p7-mr-hot-dog"},
+  "Cafe Letka": {"desc": "One of Letná’s original hip café pioneers and still one of the area’s best places to slow down for breakfast, coffee or a proper catch-up over a drink. Good food, quality coffee and a house rule that gently favors conversation over laptop hiding.", "cat": "Cafe", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Breakfast", "Cocktails"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-cafe-letka/web-0.jpg", "slug": "p7-cafe-letka"},
+  "Peperincino": {"desc": "Long-standing neighborhood Italian that stays popular for a reason: reliable pasta, pizza, family-friendly atmosphere and a pleasant hidden garden in the inner block. An easy comfortable choice when you want solid Italian without turning dinner into an event.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Pasta", "din": "Dinner", "seat": "outdoor", "tags": ["Lunch", "Dinner"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-peperincino/web-0.png", "slug": "p7-peperincino"},
+  "Amato Gelateria": {"desc": "One of Prague’s original truly excellent gelato names and still a neighborhood favorite that rarely disappoints. Classic flavors, reliable quality — an easy place to get very good ice cream when nearby.", "cat": "Ice Cream Shop", "addr": "Prague 7, Prague", "food": "Ice Cream", "din": "Dessert", "seat": "outdoor", "tags": ["Ice cream"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-amato-gelateria/web-0.jpg", "slug": "p7-amato-gelateria"},
+  "Burgerman": {"desc": "Small burger joint quietly earning some of Prague’s strongest word-of-mouth for specialty burgers done properly. Excellent meat, serious combinations and even gluten-free options make this a destination worth noting.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Burgers", "din": "Dinner", "seat": "indoor", "tags": ["Fast food"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-burgerman/web-0.jpg", "slug": "p7-burgerman"},
+  "Ristorantino da Matteo": {"desc": "One of Prague’s benchmark Italian addresses run by Roman native Matteo and beloved by locals who take Italian food seriously. Cash only, intimate, expensive and absolutely worth it for top-tier pasta, wine and one of the city’s most special date or family dinners.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Pasta", "din": "Dinner", "seat": "indoor", "tags": ["Lunch", "Dinner", "Italian"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-ristorantino-da-matteo/web-0.jpg", "slug": "p7-ristorantino-da-matteo"},
+  "Ye\u2019s Cafe": {"desc": "Tiny cozy coffee shop filled with old furniture, local calm and exactly the kind of unforced charm bigger specialty cafés try too hard to manufacture. Strong coffee, a few homemade treats and an easy hideaway when you want a slower neighborhood pause.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Coffee", "seat": "indoor", "tags": ["Coffee"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-yes-cafe/web-0.jpg", "slug": "p7-yes-cafe"},
+  "Terasa 67": {"desc": "New rooftop summer addition above the Křižík Fountain built for sunset snacks, easy drinks and warm evening lingering. Stylish without being too formal, and likely to become one of those seasonal Prague spots people repeatedly suggest once terrace weather starts.", "cat": "Bistro", "addr": "Prague 7, Prague", "food": "Cocktails", "din": "Drinks", "seat": "outdoor", "tags": ["Bar"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-terasa-67/web-0.jpg", "slug": "p7-terasa-67"},
+  "Acid Coffee": {"desc": "Quiet little hidden coffee stop tucked inside the block, away from the main Holešovice movement. Good specialty coffee, a few snacks and a notably calmer mood than most of the neighborhood’s busier café addresses.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Coffee", "seat": "outdoor", "tags": ["Coffee"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-acid-coffee/web-0.png", "slug": "p7-acid-coffee"},
+  "Prosek\u00e1rna Letn\u00e1": {"desc": "Part of Prague’s charming local prosecco bar mini-chain, offering exactly what the name promises: always-chilled bubbles, cozy seating and enough small snacks to turn drinks into an easy little gathering.", "cat": "Wine Bar", "addr": "Prague 7, Prague", "food": "Wine", "din": "Drinks", "seat": "indoor", "tags": ["Bar", "Wine"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-prosekarna/web-0.jpg", "slug": "p7-prosekarna"},
+  "Hillbilly": {"desc": "Once considered Prague’s undisputed burger king, this rough biker-style bar still knows exactly what it is doing with burgers, fries and beer. No polished service, no cozy hospitality, just get in, get fed and leave happy if food matters more than smiles.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Burgers", "din": "Dinner", "seat": "indoor", "tags": ["Burger"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-hillbilly/web-0.jpg", "slug": "p7-hillbilly"},
+  "Sandwich Rodeo": {"desc": "From the Mr. Hot Dog and Big Smokers crew, this is Prague’s go-to address for American sandwich comfort done properly. Philly cheesesteaks, meatball subs and other heavy hitters served in a small format that makes it more cult stop than casual café.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Sandwiches", "din": "Dinner", "seat": "indoor", "tags": ["Dinner", "Fast food"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-sandwhich-rodeo/ai-0.png", "slug": "p7-sandwhich-rodeo"},
+  "Stejk\u00e1rna Hole\u0161ovice": {"desc": "Reliable local steakhouse that skips the white-tablecloth performance and focuses on doing meat properly. Generous cuts, classic sides and a straightforward atmosphere make this a safe call when the craving is simply steak and not a culinary experiment", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Steak", "din": "Dinner", "seat": "indoor", "tags": ["Dinner", "Steak house"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-stejkarna/web-0.jpg", "slug": "p7-stejkarna"},
+  "C\u00e0 Ph\u00ea": {"desc": "Temporarily closed. One of the earlier Holešovice cafés to prove the neighborhood knew how to do breakfast and lunch with personality long before Prague 7 became oversaturated with coffee spots. Vietnamese-influenced breakfasts, mango sticky rice, pho in the morning and a warm airy interior made this a genuinely distinctive all-day favorite.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Vietnamese", "din": "Breakfast", "seat": "outdoor", "tags": ["Coffee", "Breakfast", "Lunch"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-ca-phe/web-0.jpg", "slug": "p7-ca-phe"},
+  "Kav\u00e1rna Liber\u00e1l": {"desc": "Old-school European café in the true Central European sense: coffee, beer, simple lunch plates, newspapers, open seating and no pressure to rush anywhere. Bare-bones in the best way, with summer outdoor tables turning the square into a laid-back local beer garden.", "cat": "Cafe", "addr": "Prague 7, Prague", "food": "Beer", "din": "Lunch", "seat": "outdoor", "tags": ["Coffee", "Breakfast", "Beer", "Czech", "Lunch"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-kavarna-liberal/web-0.png", "slug": "p7-kavarna-liberal"},
+  "Letec espresso bar": {"desc": "Smaller sibling to Café Letka carrying over the same quality coffee DNA into a quicker neighborhood format. Great espresso, fresh buns, koláče and easy breakfast bites make this one of the nicer grab-and-go morning stops in Malý Berlín.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Coffee", "seat": "outdoor", "tags": ["Coffee", "Breakfast"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-letec-espresso-bar/web-0.jpg", "slug": "p7-letec-espresso-bar"},
+  "Cafe Cruz": {"desc": "Warm Argentinian spot mixing empanadas, roast chicken, sliders and a genuinely welcoming atmosphere that makes it easy to linger. Friendly staff, surprising interior and a nice break from the usual Prague brunch formulas.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Empanadas", "din": "Dinner", "seat": "indoor", "tags": ["Lunch", "Dinner"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-cafe-cruz/web-0.webp", "slug": "p7-cafe-cruz"},
+  "The Miners Coffee Letna": {"desc": "Another branch of Prague’s ever-expanding Miners chain, but this one earns points for its quieter inner-block seating and occasional DJ evenings. Good coffee as expected, younger crowd, and a slightly more social version of the now familiar Miners formula.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Breakfast", "seat": "outdoor", "tags": ["Coffee", "Breakfast", "Lunch"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-miners-letna/web-0.jpg", "slug": "p7-miners-letna"},
+  "Tepl\u00e1 ka\u010dka": {"desc": "A few years ago Teplá kačka arrived as one of Prague’s standout modern Asian spots and it has held that reputation well. Duck specialties, Asian sharing plates, polished service and a consistently strong kitchen make this an easy dinner or group choice.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Asian Fusion", "din": "Dinner", "seat": "indoor", "tags": ["Lunch", "Asian"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-tepla-kacka/web-0.jpg", "slug": "p7-tepla-kacka"},
+  "Onigirazu": {"desc": "First dedicated onigirazu stop in Prague and still the city’s go-to place for these hearty Japanese sushi sandwiches. Takeaway only, fast and filling, and an ideal quick lunch when you want something different from the standard bakery run.", "cat": "Takeaway", "addr": "Prague 7, Prague", "food": "Quick bites", "din": "Lunch", "seat": "counter", "tags": ["Asian"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-onigirazu/web-0.jpg", "slug": "p7-onigirazu"},
+  "hrnek": {"desc": "Cozy youthful hangout balancing specialty coffee, good music and a small but thoughtful kitchen offer. Relaxed local energy, a nice place to sit longer. Check the cinnamon twist pastry.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Breakfast"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-hrnek/web-0.png", "slug": "p7-hrnek"},
+  "Kolektor": {"desc": "The chilled-out café inside the modern art museum, carrying much of the same young noisy community energy people loved when it was still Café Jedna. Great open industrial space, good snacks and coffee, but expect crowds, self-service and a bit of organized chaos at peak hours.", "cat": "Cafe", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Lunch", "seat": "indoor", "tags": ["Coffee", "Breakfast", "Lunch"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-kolektor/web-0.jpg", "slug": "p7-kolektor"},
+  "BON Ramen": {"desc": "Part of Prague’s trusted local BON noodle mini-chain and one of the more reliable places in Letná for authentic ramen, udon and soba. Consistent broths, handmade noodles and a straightforward formula that works when the weather asks for soup.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Ramen", "din": "Lunch", "seat": "indoor", "tags": ["Asian"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-bon-ramen/web-0.jpg", "slug": "p7-bon-ramen"},
+  "Chutnej": {"desc": "Started as a vegan pizza concept and evolved into one of the cozier friendly-service comfort spots in the area. Tasty food, warm atmosphere and the kind of casual place that makes plant-based eating feel pleasantly unpreachy.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Pizza", "din": "Lunch", "seat": "indoor", "tags": ["Vegan"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-chutnej/web-0.jpg", "slug": "p7-chutnej"},
+  "Pilot Cafe Letn\u00e1": {"desc": "Comfortable all-day café doing hearty breakfasts, specialty coffee, homemade desserts and a relaxed polished interior that works equally well for a slow morning or an afternoon glass of wine. A dependable newer Letná address when you are thinking boozy brunch.", "cat": "Cafe", "addr": "Prague 7, Prague", "food": "Breakfast", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Breakfast"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-pilot-cafe/web-0.jpg", "slug": "p7-pilot-cafe"},
+  "moe": {"desc": "Newcomer taking over the former Bistro 8 address and keeping the area supplied with polished breakfast and lunch options. Slightly pricier than the old neighborhood standard, but still a very solid modern café-bistro when you want something dependable in this part of Letná.", "cat": "Bistro", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Breakfast", "seat": "indoor", "tags": ["Lunch"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-moe/ai-0.png", "slug": "p7-moe"},
+  "Las Adelitas (Letn\u00e1)": {"desc": "Newest cozy branch of Prague’s original Mexican institution serving the same trusted tacos, enchiladas and frozen margaritas people have loved for years. Easy group dinner choice, easy drinks choice, and still one of the city’s safest bets when Mexican is the craving.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Mexican", "din": "Dinner", "seat": "indoor", "tags": ["Mexican"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-las-adelita-letna/web-0.png", "slug": "p7-las-adelita-letna"},
+  "Cork": {"desc": "Small intimate natural wine bar that has built a quiet loyal following among Letná wine people. Expect carefully chosen bottles, knowledgeable service and the kind of low-key evening atmosphere that works best for slower conversations rather than loud nights.", "cat": "Wine Bar", "addr": "Prague 7, Prague", "food": "Wine", "din": "Drinks", "seat": "indoor", "tags": ["Bar", "Wine"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-cork/web-0.png", "slug": "p7-cork"},
+  "Sally O'Brien's Irish Pub": {"desc": "A genuinely well-regarded Irish pub that has quickly earned a reputation for one of the freshest Guinness pours in Prague. Friendly staff, sports, live music and a crowd that often treats it like a real neighborhood local rather than a tourist costume pub.", "cat": "Pub", "addr": "Prague 7, Prague", "food": "Beer", "din": "Drinks", "seat": "indoor", "tags": ["Beer", "Bar"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-sally-o-brien-s-irish-pub/ai-0.png", "slug": "p7-sally-o-brien-s-irish-pub"},
+  "My\u0161\u00e1k - Hole\u0161ovick\u00e1 tr\u017enice": {"desc": "Prague’s legendary historic cukrárna under Ambiente ownership has now landed in the fast-rising Holešovická tržnice complex. Top-tier cakes, polished pastry work and a constant local crowd already make this one of the market’s defining new anchors after the 2026 opening.", "cat": "Cake Shop", "addr": "Prague 7, Prague", "food": "Cakes", "din": "Dessert", "seat": "outdoor", "tags": ["Coffee", "Breakfast", "Dessert"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-mysak-trznice/ai-0.png", "slug": "p7-mysak-trznice"},
+  "Spojka": {"desc": "Large-format Karlín café-bistro built to handle everything from breakfast meetings to evening drinks without losing its cool industrial polish. Spacious, stylish and reliably busy, with a broad modern menu that makes it one of the area’s easiest safe picks.", "cat": "Restaurant", "addr": "Prague 8 - Karlin, Prague", "food": "Modern European", "din": "Dinner", "seat": "outdoor", "tags": ["Modern European"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-spojka/web-0.jpg", "slug": "p7-spojka"},
+  "Mensa": {"desc": "Formerly known for seafood, now reworked into a smaller polished bistro with a more Mediterranean and Italian-leaning menu. Cozy interior, thoughtful plates and a calmer grown-up dinner atmosphere make this feel more like a hidden neighborhood supper spot than a flashy new opening.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Pasta", "din": "Dinner", "seat": "indoor", "tags": ["Lunch", "Dinner"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-mensa/web-0.png", "slug": "p7-mensa"},
+  "FUEL bistro": {"desc": "Long-standing Karlín reliable for modern bistro plates that pull from Asian, Mediterranean and comfort-food directions without becoming gimmicky. Stylish enough for lunch meetings, relaxed enough for dinner, and one of those places that quietly keeps delivering year after year.", "cat": "Bistro", "addr": "Prague 8 - Karlin, Prague", "food": "Asian Fusion", "din": "Lunch", "seat": "outdoor", "tags": ["Restaurant", "Bistro", "Healthy"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-fuel/web-0.jpg", "slug": "p7-fuel"},
+  "Dva kohouti": {"desc": "One of Prague’s busiest after-work beer magnets where the office crowd spills into loud industrial courtyard chaos almost every evening. Fresh beer from the Matuška tanks, street-food energy and a social scene that feels more like an event than just a pub stop.", "cat": "Brewery", "addr": "Prague 8 - Karlin, Prague", "food": "Beer", "din": "Drinks", "seat": "outdoor", "tags": ["Beer", "Fast food"], "img": "", "slug": "p7-dva-kohouti"},
+  "The Miners Coffee Bakery": {"desc": "A newer extension of the ever-growing Miners universe, this one adding a fuller bakery component to the familiar polished specialty coffee formula. Expect the same modern crowd, strong drinks and photogenic pastry lineup, but with a little more substance than the chain’s smaller espresso-only branches.", "cat": "Coffee Shop", "addr": "Prague 8 - Karlin, Prague", "food": "Coffee", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Light fare"], "img": "", "slug": "p7-miners"},
+  "Na b\u0159ehu Rh\u00f4ny Letn\u00e1": {"desc": "Larger newer branch of Prague’s beloved French wine bar chain, pairing serious bottle selection with a spacious interior and pleasant outdoor garden. Come for wine and light snacks rather than a full meal, and it works especially well for longer evening catch-ups.", "cat": "Wine Bar", "addr": "Prague 7, Prague", "food": "Wine", "din": "Drinks", "seat": "outdoor", "tags": ["Bar", "Wine"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-na-brehu-rhony/web-0.png", "slug": "p7-na-brehu-rhony"},
+  "PIPCA": {"desc": "Funky modern joint built around grilled chicken but branching confidently into Asian-fusion comfort plates and drinks. Cool interior, a few outdoor seats in warmer months and a refreshing break from Prague’s more predictable dining options.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Chicken", "din": "Dinner", "seat": "indoor", "tags": ["Lunch", "Dinner"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-pipca/web-0.png", "slug": "p7-pipca"},
+  "LOKA": {"desc": "What used to be a surprisingly good hidden coffee counter inside Alza has now grown into a more polished café concept with slightly less bargain charm. Prices went up, but the coffee, snacks and practical convenience still make it a very solid stop if shopping or waiting nearby.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Coffee", "seat": "indoor", "tags": ["Coffee", "Breakfast"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-loka/web-0.jpg", "slug": "p7-loka"},
+  "Lok\u00e1l Hamburk": {"desc": "Back in peak Lokál mania this was one of those places where people happily drank Pilsner dressed for a night out right on the pavement. It has since matured into a true Karlín institution, still pouring top fresh Plzeň and serving the same dependable Czech classics with quality intact.", "cat": "Restaurant", "addr": "Prague 8 - Karlin, Prague", "food": "Beer", "din": "Lunch", "seat": "indoor", "tags": ["Czech", "Beer"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-lokal-hamburk/web-0.jpg", "slug": "p7-lokal-hamburk"},
+  "Kaava": {"desc": "Tiny Karlín corner café with a quietly devoted local following built on genuinely excellent coffee, homemade cakes and unusually warm service. Mediterranean touches, small outdoor seating and a softer neighborhood feel make this more personal than the average office-district coffee stop.", "cat": "Coffee Shop", "addr": "Prague 8 - Karlin, Prague", "food": "Coffee", "din": "Coffee", "seat": "indoor", "tags": ["Coffee"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-kaava/web-0.jpg", "slug": "p7-kaava"},
+  "M\u016fj \u0160\u00e1lek K\u00e1vy": {"desc": "One of Prague’s foundational brunch institutions and among the very first places to make specialty coffee breakfasts a city obsession. Still packed, still excellent, and one of those rare pioneers that never really lost relevance as dozens of imitators followed.", "cat": "Cafe", "addr": "Prague 8 - Karlin, Prague", "food": "Coffee", "din": "Breakfast", "seat": "outdoor", "tags": ["Coffee", "Baked goods", "Brunch", "Breakfast", "Drinks"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-muj-salek-kavy/web-0.jpg", "slug": "p7-muj-salek-kavy"},
+  "Lok\u00e1l Nad Stromovkou": {"desc": "By now a full local institution and one of the most dependable Czech pub hangs in any part of Prague. Standardly excellent Czech classics, famously fresh Pilsner Urquell, lots of regulars and a perfect reward stop before or after a long walk in Stromovka.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Beer", "din": "Lunch", "seat": "outdoor", "tags": ["Beer", "Czech", "Lunch"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-lokal-nad-stromovkou/web-0.jpg", "slug": "p7-lokal-nad-stromovkou"},
+  "format.coffee": {"desc": "Tiny Mazelab coffee outpost proving that very small spaces can still deliver very serious coffee. A few snacks, a couple hidden seats in the back and an easy stop when you care more about the cup than the café bustle.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Coffee", "seat": "indoor", "tags": ["Coffee", "Breakfast"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-format-coffee/web-0.png", "slug": "p7-format-coffee"},
+  "Caf\u00e9 Tvaroh": {"desc": "Hip student-friendly café with a reliably lively back garden and enough kitchen substance to make it more than just a coffee stop. Good for working, meeting friends or casually lingering when you want one of Letná’s younger social café atmospheres.", "cat": "Cafe", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Breakfast", "seat": "outdoor", "tags": ["Coffee", "Breakfast", "Lunch"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-cafe-tvaroh/web-0.png", "slug": "p7-cafe-tvaroh"},
+  "Vezmi pivo na klob\u00e1su": {"desc": "Clean-looking modern beer stop built around a very Czech simple promise: good draft beer and proper sausage without unnecessary fuss. More polished than the old-school kiosk version of this concept, and exactly the kind of casual walk-in place that works for one quick standing round or an easy snack.", "cat": "Takeaway", "addr": "Prague 7, Prague", "food": "Beer", "din": "Lunch", "seat": "counter", "tags": ["Butcher"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-vezmi-pivo-na-klobasu/ai-0.png", "slug": "p7-vezmi-pivo-na-klobasu"},
+  "Supernova Bakehouse": {"desc": "Second Supernova branch bringing the same polished pastries, savory treats and high-design baked goods into a much more accessible Karlín location. It lacks a bit of the hidden-neighborhood romance of the original, but the quality remains fully benchmark level.", "cat": "Bakery", "addr": "Prague 8 - Karlin, Prague", "food": "Pastries", "din": "Breakfast", "seat": "indoor", "tags": ["Bakery"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-supernova/web-0.png", "slug": "p7-supernova"},
+  "Off bistro by Home Kitchen": {"desc": "New Prague 8 offshoot from the Home Kitchen family bringing the same trusted homemade quality into a smaller office-friendly lunch and snack format. Soups, sandwiches, baked goods and easy daily meals make this a very welcome upgrade from standard business district canteen food.", "cat": "Bistro", "addr": "Prague 8 - Karlin, Prague", "food": "Modern European", "din": "Lunch", "seat": "indoor", "tags": ["Modern European", "Coffee", "Baked goods"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-off-by-home-kitchen/web-0.jpg", "slug": "p7-off-by-home-kitchen"},
+  "Sugo": {"desc": "A very well-executed new Italian that proves fresh development buildings do not automatically kill atmosphere. Excellent pasta, confidently flavored plates, handsome interior and a lively social room make this better for a buzzing dinner than a long romantic evening — eat well, have a drink, then continue out.", "cat": "Restaurant", "addr": "Prague 8 - Karlin, Prague", "food": "Pasta", "din": "Dinner", "seat": "indoor", "tags": ["Italian", "Drinks"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-sugo/web-0.png", "slug": "p7-sugo"},
+  "Chleba a m\u00e1slo": {"desc": "Started as a modest bakery window and slowly turned into one of Letná’s more unique all-purpose comfort food stops. Excellent pancakes, baked goods, tiny schnitzels and other Czech-friendly treats, now with indoor seating that makes it more than just a grab-and-go run.", "cat": "Bakery", "addr": "Prague 7, Prague", "food": "Bread", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Breakfast", "Lunch", "Bakery"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-chleba-a-maslo/web-0.png", "slug": "p7-chleba-a-maslo"},
+  "ESKA Letna": {"desc": "Compact sibling to the famous Karlín flagship bringing ESKA’s excellent coffee, bread and signature baked products into Letná. Smaller and more practical and not offering a full kitchen, but a quality stop  you can trust.", "cat": "Bakery", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Breakfast", "Dinner"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-eska-letna/ai-0.png", "slug": "p7-eska-letna"},
+  "Matilda": {"desc": "A newer Letná anchor quickly becoming one of the area’s see-and-be-seen Italian tables. Packed room, polished plates, kind service and enough buzz to make this feel like both a social outing and a genuinely good dinner.", "cat": "Restaurant", "addr": "Prague 7, Prague", "food": "Pasta", "din": "Lunch", "seat": "outdoor", "tags": ["Lunch", "Dinner", "Italian"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-matilda/web-0.jpg", "slug": "p7-matilda"},
+  "Cukr\u00e1rna Alchymista": {"desc": "Special little cake house best known for its award-winning cheesecakes, but the real magic is the hidden garden tucked away in the back. Come for dessert, coffee or an afternoon drink and stay longer than planned once you find the courtyard.", "cat": "Cake Shop", "addr": "Prague 7, Prague", "food": "Cakes", "din": "Dessert", "seat": "outdoor", "tags": ["Coffee", "Breakfast", "Bakery", "Dessert"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-alchymista/web-0.jpg", "slug": "p7-alchymista"},
+  "Dos Mundos Caf\u00e9": {"desc": "One of Prague’s original locally roasted specialty coffee names and still one of the friendliest reliable caffeine stops around. Good coffee, kind people, proper decaf and the sort of unfussy consistency that helped build Prague’s coffee scene before it became crowded.", "cat": "Coffee Shop", "addr": "Prague 7, Prague", "food": "Coffee", "din": "Coffee", "seat": "indoor", "tags": ["Coffee"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-dos-mundos/web-0.jpg", "slug": "p7-dos-mundos"},
+  "Matsuri": {"desc": "Authentic Japanese izakaya-style bistro with exactly the slightly chaotic packed-table energy people hope for when they say they want the real thing. Japanese comfort dishes, drinks, loud evenings and a vibe that feels far closer to Tokyo side-street dining than polished Prague sushi minimalism.", "cat": "Bistro", "addr": "Prague 7, Prague", "food": "Bento", "din": "Drinks", "seat": "indoor", "tags": ["Asian"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-matsuri/web-0.jpg", "slug": "p7-matsuri"},
+  "Nejen Bistro": {"desc": "Permanently Closed. For a long time one of Karlín’s most rounded and quietly dependable modern bistros, equally comfortable for casual lunch, business dinner or team evening out. The kitchen was broad enough to stay interesting, the service consistently polished, and even when later menus drifted into more eccentric experiments it remained one of those places people trusted almost automatically.", "cat": "Restaurant", "addr": "Prague 8 - Karlin, Prague", "food": "Modern European", "din": "Dinner", "seat": "outdoor", "tags": [], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-nejen-bistro/web-0.jpg", "slug": "p7-nejen-bistro"},
+  "Y\u2019es coffee and wine": {"desc": "Second branch of the much-loved cozy Letná original, this time translated into a brighter modern building with more seating, more food and evening wine to stretch the day longer. It keeps the warm personal feel while functioning as a fuller all-day café stop.", "cat": "Cafe", "addr": "Prague 8 - Karlin, Prague", "food": "Coffee", "din": "Coffee", "seat": "outdoor", "tags": ["Coffee", "Drinks"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-yes-coffee-and-wine/web-0.jpg", "slug": "p7-yes-coffee-and-wine"},
+  "Karl\u00ednsk\u00e1 HolKa": {"desc": "Larger friendly Czech restaurant right by the river offering dependable local classics in a brighter more modern format than the average pub. Good for groups, easy lunches and straightforward Czech comfort when you want substance without old tavern heaviness.", "cat": "Restaurant", "addr": "Prague 8 - Karlin, Prague", "food": "Beer", "din": "Lunch", "seat": "outdoor", "tags": ["Czech", "Beer"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-holka/web-0.webp", "slug": "p7-holka"},
+  "Alf & Bet": {"desc": "Bakery and roastery sibling to the EMA coffee family, and for many people the place where the concept actually feels most complete. Excellent bread, pastries, breakfast plates and serious coffee all under one roof — a benchmark Karlín staple that still fully deserves its crowd.", "cat": "Bakery", "addr": "Prague 8 - Libeň, Prague", "food": "Coffee", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Baked goods", "Breakfast"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-alf-bet/web-0.jpg", "slug": "p7-alf-bet"},
+  "Luft": {"desc": "One of Holešovice’s cooler late-day bar addresses, mixing serious cocktails, coffee, sandwiches and a distinctly music-driven interior scene. Vinyl, listening sessions and occasional dancing give this place more personality than the average neighborhood bar, especially once the evening crowd rolls in.", "cat": "Bar", "addr": "Prague 7, Prague", "food": "Cocktails", "din": "Drinks", "seat": "indoor", "tags": ["Bar"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-luft/web-0.png", "slug": "p7-luft"},
+  "Caf\u00e9 Lajka": {"desc": "One of Letná’s most established all-round local hangouts balancing café, craft beer bar and relaxed pub in one easy format. Strong coffee, its own brewery downstairs, plenty of regulars and a comfortable leafy setting make this a place people use from afternoon work to evening drinks.", "cat": "Pub", "addr": "Prague 7, Prague", "food": "Cocktails", "din": "Drinks", "seat": "indoor", "tags": ["Bar"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-cafe-lajka/web-0.png", "slug": "p7-cafe-lajka"},
+  "Klub AVU": {"desc": "A long-time favorite with art students and younger locals, best experienced on warm evenings when the garden fills up and the place gets properly busy. Cheap drinks, loose social energy and exactly the kind of unfancy Prague student scene that still feels authentic.", "cat": "Bistro", "addr": "Prague 7, Prague", "food": "Modern European", "din": "Lunch", "seat": "outdoor", "tags": ["Bar"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-klub-avu/web-0.jpg", "slug": "p7-klub-avu"},
+  "Na\u0161e maso - Hole\u0161ovick\u00e1 tr\u017enice": {"desc": "The legendary butcher concept that turned quality Czech meat into one of Prague’s cult food destinations now helping transform Holešovická tržnice as well. Come for exceptional burgers, sausages and butcher-shop classics — and expect crowds, because locals migrated here immediately.", "cat": "Takeaway", "addr": "Prague 7, Prague", "food": "Burgers", "din": "Lunch", "seat": "outdoor", "tags": ["Beer", "Butcher"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-nase-maso-trznice/ai-0.png", "slug": "p7-nase-maso-trznice"},
+  "ESKA": {"desc": "Ambiente’s Karlín powerhouse now split into two strong identities: ESKA for legendary breakfasts, bread, coffee and one of Prague’s benchmark modern Czech dinners, and Stangl for a more focused elevated tasting experience - still upstairs. Together they remain one of the city’s most important serious food destinations.", "cat": "Cafe", "addr": "Prague 8 - Karlin, Prague", "food": "Coffee", "din": "Breakfast", "seat": "outdoor", "tags": ["Coffee", "Bakery", "Restaurant", "Czech"], "img": "", "slug": "p7-eska"},
+  "Choux Choux": {"desc": "High-end French-style patisserie focused on elegant choux pastries, polished cakes and gift-box-level desserts that look almost too neat to eat. More boutique pastry salon than casual bakery stop, and a very good pick when ordinary koláč suddenly feels underdressed.", "cat": "Cake Shop", "addr": "Prague 7, Prague", "food": "Cakes", "din": "Dessert", "seat": "indoor", "tags": ["Coffee", "Bakery"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-choux-choux/ai-0.png", "slug": "p7-choux-choux"},
+  "Veltlin": {"desc": "One of Prague’s most respected wine bars, built around a smart natural wine list from across the old Austro-Hungarian belt rather than generic international bottles. Serious but unpretentious, and a superb choice when wine is the actual evening plan.", "cat": "Wine Bar", "addr": "Prague 8 - Karlin, Prague", "food": "Wine", "din": "Drinks", "seat": "indoor", "tags": ["Wine", "Wine bar", "Drinks"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-veltin/web-0.jpg", "slug": "p7-veltin"},
+  "TYPIKA Karl\u00edn": {"desc": "Part of Prague’s increasingly visible Typika coffee family, but this roastery location still feels like a calm hidden minimalist retreat. Excellent coffee, restrained design and enough distance from Karlín bustle to make it one of the area’s better quiet coffee escapes.", "cat": "Espresso Bar", "addr": "Prague 8 - Karlin, Prague", "food": "Coffee", "din": "Coffee", "seat": "outdoor", "tags": ["Coffee", "Espresso Bar"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-typika/web-0.jpg", "slug": "p7-typika"},
+  "Etapa": {"desc": "The once-trending vegetarian brunch darling that managed the harder trick of staying genuinely good after everyone discovered it. Beautiful plates, strong bakery output and a calm polished interior still make this one of Karlín’s more rewarding slower breakfasts.", "cat": "Cafe", "addr": "Prague 8 - Karlin, Prague", "food": "Coffee", "din": "Breakfast", "seat": "outdoor", "tags": ["Coffee", "Baked goods", "Brunch", "Breakfast", "Drinks"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-etapa/web-0.jpg", "slug": "p7-etapa"},
+  "Rev\u00edr": {"desc": "Stylish Karlín cocktail bar that becomes especially attractive in warmer months thanks to its outdoor setup and relaxed evening spillover. Good drinks, polished interior and a dependable option when beer suddenly feels too predictable.", "cat": "Bar", "addr": "Prague 8 - Karlin, Prague", "food": "Cocktails", "din": "Drinks", "seat": "outdoor", "tags": ["Bar", "Drinks", "Cocktails"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-revir/web-0.jpg", "slug": "p7-revir"},
+  "Bufet": {"desc": "Fast-casual sibling sitting across the courtyard from Dva Kohouti, serving burgers, fried cheese, sausages and Czech comfort snacks with equally fresh beer on hand. At peak hours it feeds the whole beer crowd, but off-peak it becomes a surprisingly pleasant industrial lunch stop in its own right.", "cat": "Takeaway", "addr": "Prague 8 - Karlin, Prague", "food": "Burgers", "din": "Dinner", "seat": "outdoor", "tags": ["Fast food", "Burgers", "Beer", "Czech"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-bufet/web-0.jpg", "slug": "p7-bufet"},
+  "Dear Watson": {"desc": "A newer Karlín pub concept built around a playful Sherlock Holmes theme, but the real surprise is that the food and beer program are taken seriously enough to make it more than décor. English comfort classics, strong Guinness pours and a warm lively atmosphere give this place genuine staying power.", "cat": "Pub", "addr": "Prague 8 - Karlin, Prague", "food": "Beer", "din": "Drinks", "seat": "indoor", "tags": ["Bar", "Beer"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-dear-watson/web-0.webp", "slug": "p7-dear-watson"},
+  "Favoreat": {"desc": "Bright modern bakery-bistro with an all-day menu built around polished breakfasts, sandwiches, pastries and quality coffee. A stylish dependable Karlín default that works especially well when you want something lighter and cleaner than the district’s louder beer-and-burger options.", "cat": "Takeaway", "addr": "Prague 8 - Karlin, Prague", "food": "Sandwiches", "din": "Lunch", "seat": "counter", "tags": ["Sandwhich"], "img": "", "slug": "p7-favoreat"},
+  "Light Roast Coffee": {"desc": "Simple understated café with one of the nicer quiet outlooks over the Libeň docks. Good coffee, a few small treats and a notably calm setting make this a very easy low-key pause if you are in this less café-dense pocket of Prague.", "cat": "Coffee Shop", "addr": "Prague 8 - Libeň, Prague", "food": "Coffee", "din": "Breakfast", "seat": "outdoor", "tags": ["Cafe", "Coffee", "Breakfast"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-light-roast-coffee/web-0.jpg", "slug": "p7-light-roast-coffee"},
+  "Lagom bistro": {"desc": "One of the more popular newcomers in Karlín’s newest development zone, built around all-day brunch, homemade desserts, specialty coffee and a calm Scandinavian-clean interior. Family friendly without feeling childish, polished without feeling cold, and quickly becoming a real neighborhood default.", "cat": "Bistro", "addr": "Prague 8 - Karlin, Prague", "food": "Coffee", "din": "Breakfast", "seat": "outdoor", "tags": ["Vietnamese", "Breakfast", "Coffee"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-lagom-bistro/web-0.jpg", "slug": "p7-lagom-bistro"},
+  "Blue fjord": {"desc": "Nordic-inspired seafood bistro centered around fresh fish, oysters, open sandwiches and clean Scandinavian flavors that stand out sharply from Karlín’s heavier comfort-food scene. A very good choice when you want something lighter, sharper and a little more polished than the neighborhood norm.", "cat": "Restaurant", "addr": "Prague 8 - Karlin, Prague", "food": "Seafood", "din": "Dinner", "seat": "indoor", "tags": ["Seafood"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-blue-fjord/web-0.webp", "slug": "p7-blue-fjord"},
+  "Pohostinec Karl\u00edn": {"desc": "Exactly the kind of efficient Karlín lunch workhorse office people rely on: fast service, fair prices and solid modern european daily meals that arrive without unnecessary delay. Not destination dining, but one of the area’s smartest practical weekday lunch solutions.", "cat": "Restaurant", "addr": "Prague 8 - Karlin, Prague", "food": "Modern European", "din": "Lunch", "seat": "indoor", "tags": ["Modern European"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-pohostinec/web-0.jpg", "slug": "p7-pohostinec"},
+  "The Miners Coffee Roastery": {"desc": "The Libeň roastery branch of Prague’s now-ubiquitous Miners operation, giving the familiar sleek coffee formula a little more legitimacy by roasting on site. Spacious, modern and coffee-serious, this is one of the stronger Miners stops if you still have room in your life for one more.", "cat": "Coffee Shop", "addr": "Prague 8 - Libeň, Prague", "food": "Coffee", "din": "Breakfast", "seat": "indoor", "tags": ["Coffee", "Light fare"], "img": "", "slug": "p7-miners-liben"},
+  "Riders coffee": {"desc": "By now a long-standing river route staple where cyclists, walkers and weekend drifters naturally stop for coffee, pastry and occasional Angelato ice cream. Casual, outdoorsy and perfectly placed for a pause rather than a formal café sit-down.", "cat": "Coffee Shop", "addr": "Prague 8 - Karlin, Prague", "food": "Coffee", "din": "Coffee", "seat": "outdoor", "tags": ["Coffee"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-riders-coffee/web-0.jpg", "slug": "p7-riders-coffee"},
+  "KRO Libe\u0148": {"desc": "Latest landing place for the nomadic KRO chicken concept that keeps popping up because people keep following it. Excellent rotisserie chicken, rich sides and a menu built around simple things done properly — a very strong comfort-food stop when hunger is not theoretical.", "cat": "Bistro", "addr": "Prague 8 - Libeň, Prague", "food": "Chicken", "din": "Lunch", "seat": "outdoor", "tags": ["Modern European", "Drinks"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-kro-bistro/web-0.jpg", "slug": "p7-kro-bistro"},
+  "Krystal bistro": {"desc": "Krystal has evolved well beyond its earlier burger reputation into one of Karlín’s most dependable polished neighborhood bistros. Modern Czech and European plates, excellent service, strong wine and a menu that stays ambitious without becoming pretentious make this a very safe grown-up dinner choice.", "cat": "Restaurant", "addr": "Prague 8 - Karlin, Prague", "food": "Steak", "din": "Dinner", "seat": "indoor", "tags": ["Modern European"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-krystal-bistro/web-0.jpg", "slug": "p7-krystal-bistro"},
+  "Garage": {"desc": "A Prague cult classic for takeaway poutine and indulgent Canadian comfort food that people happily cross neighborhoods for. Small format, no nonsense and exactly the kind of greasy rewarding stop that solves a bad day very quickly.", "cat": "Takeaway", "addr": "Prague 8 - Karlin, Prague", "food": "Canadian", "din": "Lunch", "seat": "counter", "tags": ["Poutine", "Fast food"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-garage/web-0.jpg", "slug": "p7-garage"},
+};
+
+const TIER_NODE_COLORS  = { Exceptional:[251,191,36], Great:[129,140,248], Good:[148,163,184], New:[52,211,153] };
+const TIER_NODE_HEIGHTS = { Exceptional:1.22, Great:1.16, New:1.12, Good:1.09 };
+const TIER_NODE_SIZES   = { Exceptional:2.8,  Great:2.0,  New:1.8,  Good:1.5  };
+const TIER_LINE_WIDTHS  = { Exceptional:1.8,  Great:1.2,  New:1.0,  Good:0.7  };
+
+// Prague reference point (used for visibility culling)
+const PRAGUE_LON = 14.434, PRAGUE_LAT = 50.097;
+
+// Geographic centers of each sub-district (real coordinates)
+const DISTRICTS = {
+  L: { lat:50.0978, lng:14.4198, spread:3.5 }, // Letná hill & strip
+  H: { lat:50.1018, lng:14.4478, spread:2.5 }, // Holešovice (arts/market area)
+  T: { lat:50.1053, lng:14.4447, spread:0.8 }, // Holešovická tržnice (2 venues)
+  K: { lat:50.0921, lng:14.4638, spread:3.0 }, // Karlín
+  B: { lat:50.1112, lng:14.4705, spread:1.0 }, // Libeň
+};
+
+let VENUE_NODES = [];
+let COUNTRY_RINGS = {}; // numericId → ring[][]
+
+// Venue count per city name — drives satellite size; grows as cities get data
+// Keys must match the `name` field in CITY_DATABASE entries.
+const CITY_VENUE_COUNTS = {
+  "Prague": VENUES.length,
+  // future: "Vienna": 0, "Valletta": 0, …
+};
+
+// ── Navigable cities database ─────────────────────────────────────────────
+const CITY_DATABASE = {
+  "Austria":      [{ name:"Vienna",     lat:48.2082, lng:16.3738 }],
+  "Czech Republic":[{ name:"Prague",    lat:50.0755, lng:14.4378, hasVenues:true }],
+  "Denmark":      [{ name:"Copenhagen", lat:55.6761, lng:12.5683 }],
+  "France":       [{ name:"Paris",      lat:48.8566, lng: 2.3522 }],
+  "Germany":      [{ name:"Berlin",     lat:52.5200, lng:13.4050 }],
+  "Greece":       [{ name:"Athens",     lat:37.9838, lng:23.7275 }],
+  "Italy":        [{ name:"Rome",       lat:41.9028, lng:12.4964 },
+                   { name:"Milan",      lat:45.4642, lng: 9.1900 }],
+  "Malta": [
+    { name:"Valletta",     lat:35.8997, lng:14.5147, zoom:15 },
+    { name:"Sliema",       lat:35.9122, lng:14.5027, zoom:15 },
+    { name:"St. Julian's", lat:35.9187, lng:14.4892, zoom:15 },
+    { name:"Birkirkara",   lat:35.8975, lng:14.4617, zoom:14 },
+    { name:"Mosta",        lat:35.9094, lng:14.4258, zoom:14 },
+    { name:"St. Paul's Bay",lat:35.9494, lng:14.4017, zoom:14 },
+    { name:"Mellieħa",     lat:35.9572, lng:14.3617, zoom:14 },
+    { name:"Mdina",        lat:35.8872, lng:14.4019, zoom:15 },
+    { name:"Rabat",        lat:35.8828, lng:14.3992, zoom:15 },
+    { name:"Marsaxlokk",   lat:35.8419, lng:14.5436, zoom:14 },
+    { name:"Marsaskala",   lat:35.8636, lng:14.5578, zoom:14 },
+    { name:"Żabbar",       lat:35.8736, lng:14.5344, zoom:14 },
+    { name:"Qormi",        lat:35.8756, lng:14.4697, zoom:14 },
+    { name:"Victoria (Gozo)", lat:36.0444, lng:14.2394, zoom:14 },
+  ],
+  "Netherlands":  [{ name:"Amsterdam",  lat:52.3676, lng: 4.9041 }],
+  "Poland":       [{ name:"Warsaw",     lat:52.2297, lng:21.0122 }],
+  "Portugal":     [{ name:"Lisbon",     lat:38.7169, lng:-9.1399 }],
+  "Spain":        [{ name:"Madrid",     lat:40.4168, lng:-3.7038 },
+                   { name:"Barcelona",  lat:41.3874, lng: 2.1686 }],
+  "Sweden":       [{ name:"Stockholm",  lat:59.3293, lng:18.0686 }],
+  "United Kingdom":[{ name:"London",   lat:51.5074, lng:-0.1278 }],
+};
+
+// ISO 3166-1 numeric IDs for navigable countries
+const COUNTRY_IDS = {
+  "Austria":       40,  "Czech Republic":203, "Denmark":       208,
+  "France":        250, "Germany":        276, "Greece":        300,
+  "Italy":         380, "Malta":          470, "Netherlands":   528,
+  "Poland":        616, "Portugal":       620, "Spain":         724,
+  "Sweden":        752, "United Kingdom": 826,
+};
+
+// Camera target for each country (center lat/lng + zoom level)
+const COUNTRY_CENTERS = {
+  "Austria":       { lat:47.5, lng:14.5, zoom:8.5  },
+  "Czech Republic":{ lat:49.8, lng:15.5, zoom:9.0  },
+  "Denmark":       { lat:56.0, lng:10.0, zoom:9.5  },
+  "France":        { lat:46.5, lng: 2.5, zoom:6.5  },
+  "Germany":       { lat:51.2, lng:10.5, zoom:7.0  },
+  "Greece":        { lat:39.0, lng:22.0, zoom:8.0  },
+  "Italy":         { lat:42.5, lng:12.5, zoom:7.0  },
+  "Malta":         { lat:35.9, lng:14.4, zoom:15.0 },
+  "Netherlands":   { lat:52.2, lng: 5.3, zoom:11.0 },
+  "Poland":        { lat:52.0, lng:19.5, zoom:7.5  },
+  "Portugal":      { lat:39.5, lng:-8.0, zoom:8.5  },
+  "Spain":         { lat:40.0, lng:-3.5, zoom:6.5  },
+  "Sweden":        { lat:62.0, lng:15.0, zoom:6.0  },
+  "United Kingdom":{ lat:54.0, lng:-2.0, zoom:7.5  },
+};
+
+// CDN URLs for admin-1 (regional) TopoJSON per country
+const ADMIN_URLS = {
+  "Czech Republic": "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/czech-republic/czech-republic-regions.json",
+  "Germany":        "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/germany/germany-states.json",
+  "France":         "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/france/fr-departments-2022.json",
+  "Italy":          "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/italy/italy-regions.json",
+  "Spain":          "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/spain/spain-provinces.json",
+  "United Kingdom": "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/united-kingdom/uk-ceremonial-counties.json",
+  "Poland":         "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/poland/poland-provinces.json",
+  "Netherlands":    "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/netherlands/netherlands-provinces.json",
+  "Austria":        "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/austria/austria-states.json",
+  "Sweden":         "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/sweden/sweden-counties.json",
+  "Denmark":        "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/denmark/denmark-regions.json",
+  "Greece":         "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/greece/greece-regions.json",
+  "Portugal":       "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/portugal/portugal-districts.json",
+};
+const ADMIN_CACHE = {};
+
+// Hex colors per venue tier (for Leaflet markers)
+const TIER_HEX = { Exceptional:"#fbbf24", Great:"#818cf8", Good:"#94a3b8", New:"#34d399" };
+// Alternating region fill hues for choropleth
+const REGION_FILLS = ["#1e3a5f","#1e3a4a","#1e4a3a","#2a3a1e","#3a2a1e","#2a1e3a","#1e2a3a","#3a3a1e"];
+
+// ── Leaflet map instance (created once, reused) ────────────────────────────
+let lMap = null;        // L.Map
+let lMapLayers = [];    // all layers added for current country — cleared on switch
+
+// Real coordinates from Supabase — queried 2026-06-27.
+// Arrays handle venues with multiple locations (same name, different branch).
+const VENUE_REAL_COORDS = {
+  "Acid Coffee":                      [{lat:50.09835440,lng:14.43252420}],
+  "Alf & Bet":                        [{lat:50.10577260,lng:14.47340800}],
+  "Amato Gelateria":                  [{lat:50.10021910,lng:14.42742430}],
+  "Big Smokers":                      [{lat:50.10305180,lng:14.45091320}],
+  "Bistro Proti Proudu":              [{lat:50.09449030,lng:14.45624860}],
+  "Blue fjord":                       [{lat:50.09493800,lng:14.45056300}],
+  "BON Ramen":                        [{lat:50.10013640,lng:14.42253190}],
+  "Bufet":                            [{lat:50.09332580,lng:14.44651760}],
+  "Burgerman":                        [{lat:50.09986190,lng:14.42514210}],
+  "Cafe Cruz":                        [{lat:50.10006200,lng:14.42181200}],
+  "Café Lajka":                       [{lat:50.10240130,lng:14.42441170}],
+  "Cafe Letka":                       [{lat:50.09818960,lng:14.42535700}],
+  "Café Tvaroh":                      [{lat:50.10170880,lng:14.42229860}],
+  "Chleba a máslo":                   [{lat:50.10115060,lng:14.41790660}],
+  "Choux Choux":                      [{lat:50.10004420,lng:14.42200110}],
+  "Chutnej":                          [{lat:50.09813570,lng:14.42442910}],
+  "Cobra":                            [{lat:50.09924420,lng:14.43211730}],
+  "Coffee Room - Holešovice":         [{lat:50.10256300,lng:14.44706200}],
+  "Crème de la Crème - Holečovice":   [{lat:50.09901640,lng:14.43407480}],
+  "Crêperie U Slepé kočičky":         [{lat:50.09983250,lng:14.42799650}],
+  "Čtyřka":                           [{lat:50.10371800,lng:14.45014830}],
+  "Cukrárna Alchymista":              [{lat:50.10088740,lng:14.41717790}],
+  "Dear Watson":                      [{lat:50.09359110,lng:14.45663970}],
+  "Dos Mundos Café":                  [{lat:50.09985660,lng:14.42780780}],
+  "Dva kohouti":                      [{lat:50.09349420,lng:14.44681940}],
+  "EMA espresso bar":                 [{lat:50.09256200,lng:14.45143800},{lat:50.10593750,lng:14.45031250}],
+  "ESKA":                             [{lat:50.09136220,lng:14.45437400}],
+  "ESKA Letna":                       [{lat:50.10093800,lng:14.42606300}],
+  "Etapa":                            [{lat:50.09451260,lng:14.45782720}],
+  "FATFUCK - Smash Burgers":          [{lat:50.11093700,lng:14.45031200}],
+  "Favoreat":                         [{lat:50.09368800,lng:14.44743700}],
+  "format.coffee":                    [{lat:50.09968800,lng:14.42943800}],
+  "FUEL bistro":                      [{lat:50.09215650,lng:14.45752720}],
+  "Garage":                           [{lat:50.09311320,lng:14.45453520}],
+  "Hillbilly":                        [{lat:50.09961610,lng:14.43367620}],
+  "Home Kitchen":                     [{lat:50.10716630,lng:14.45513450}],
+  "Hong Kong":                        [{lat:50.09143820,lng:14.45264850}],
+  "hrnek":                            [{lat:50.10113550,lng:14.42825020}],
+  "Kaava":                            [{lat:50.09467060,lng:14.45343290}],
+  "Kafe Francin":                     [{lat:50.09932330,lng:14.43309590}],
+  "Kafe na zastávce":                 [{lat:50.10340640,lng:14.45336760}],
+  "Karlínská HolKa":                  [{lat:50.09505580,lng:14.44599370}],
+  "Kavárna Liberál":                  [{lat:50.10069830,lng:14.43637710}],
+  "Klub AVU":                         [{lat:50.10267880,lng:14.42534040}],
+  "Knihkopec":                        [{lat:50.10165750,lng:14.44893580}],
+  "Kolektor":                         [{lat:50.10110530,lng:14.43267400}],
+  "Kontejner":                        [{lat:50.10780930,lng:14.44860100}],
+  "KRO Libeň":                        [{lat:50.10418800,lng:14.46893700}],
+  "Krystal bistro":                   [{lat:50.09460150,lng:14.45311670}],
+  "La Forme Holesovice":              [{lat:50.10193700,lng:14.44818700}],
+  "Lagom bistro":                     [{lat:50.09847100,lng:14.46104130}],
+  "Las Adelitas (Letná)":             [{lat:50.10006200,lng:14.42568800}],
+  "Letec espresso bar":               [{lat:50.10300800,lng:14.43331240}],
+  "Letna beer garden":                [{lat:50.09618420,lng:14.42573590}],
+  "Light Roast Coffee":               [{lat:50.10473880,lng:14.46885770}],
+  "LOKA":                             [{lat:50.10031300,lng:14.44818700}],
+  "Lokál Hamburk":                    [{lat:50.09315880,lng:14.44668480}],
+  "Lokál Nad Stromovkou":             [{lat:50.10307820,lng:14.41837940}],
+  "Luft":                             [{lat:50.10288050,lng:14.42609980}],
+  "Matilda":                          [{lat:50.10106200,lng:14.41818800}],
+  "Matsuri":                          [{lat:50.10056200,lng:14.42481200}],
+  "Mensa":                            [{lat:50.10543800,lng:14.45631200}],
+  "Mexicka":                          [{lat:50.10556300,lng:14.45081200}],
+  "Mr. Hot Dog":                      [{lat:50.09946690,lng:14.42773740}],
+  "Můj Šálek Kávy":                   [{lat:50.09351840,lng:14.45515800}],
+  "Myšák - Holešovická tržnice":      [{lat:50.10023690,lng:14.44615150}],
+  "Na břehu Rhôny Letná":             [{lat:50.10006200,lng:14.42243800}],
+  "Naše maso - Holešovická tržnice":  [{lat:50.10037760,lng:14.44610450}],
+  "Naše Toustárna":                   [{lat:50.10268750,lng:14.45443750}],
+  "Off bistro by Home Kitchen":       [{lat:50.09443700,lng:14.44431300}],
+  "Onigirazu":                        [{lat:50.09908200,lng:14.43157990}],
+  "Osada":                            [{lat:50.10443700,lng:14.44647410}],
+  "Pekárna Skýva":                    [{lat:50.10206200,lng:14.44943800}],
+  "Phill's Corner":                   [{lat:50.10343700,lng:14.45018800}],
+  "Pilot Cafe Letná":                 [{lat:50.09959270,lng:14.42431220}],
+  "PIPCA":                            [{lat:50.09968800,lng:14.42918800}],
+  "Pivovar Kolkovna":                 [{lat:50.10556300,lng:14.42943800}],
+  "Pizza Gatto Nero Letná":           [{lat:50.09778100,lng:14.43128570}],
+  "Pohostinec Karlín":                [{lat:50.09389280,lng:14.44819350}],
+  "Polepšovna":                       [{lat:50.10302840,lng:14.44927530}],
+  "Prosekárna Letná":                 [{lat:50.09918700,lng:14.42343800}],
+  "PRU58":                            [{lat:50.10181300,lng:14.45343700}],
+  "Revír":                            [{lat:50.09496370,lng:14.44551160}],
+  "Riders coffee":                    [{lat:50.09583470,lng:14.44960450}],
+  "Ristorantino da Matteo":           [{lat:50.09918700,lng:14.42318800}],
+  "Sandwich Rodeo":                   [{lat:50.09967900,lng:14.42763210}],
+  "SaSaZu":                           [{lat:50.09927760,lng:14.44472560}],
+  "Sip Sip Hooray":                   [{lat:50.10331300,lng:14.44706200}],
+  "Slice Slice Baby Pizza Club":      [{lat:50.10331470,lng:14.44723800}],
+  "Spojka":                           [{lat:50.09079030,lng:14.45159160}],
+  "Stejkárna Holešovice":             [{lat:50.10246840,lng:14.43633720}],
+  "Sugo":                             [{lat:50.09481200,lng:14.45406200}],
+  "Supernova Bakehouse":              [{lat:50.10818700,lng:14.43793800},{lat:50.09193800,lng:14.45306200}],
+  "Svááča":                           [{lat:50.10466840,lng:14.45012240}],
+  "Teplá kačka":                      [{lat:50.10126540,lng:14.43386150}],
+  "Terasa 67":                        [{lat:50.10718800,lng:14.42806200}],
+  "The Eatery":                       [{lat:50.10745490,lng:14.45091040}],
+  "The Miners Coffee Bakery":         [{lat:50.09642080,lng:14.46069450}],
+  "The Miners Coffee Komunardů":      [{lat:50.10431200,lng:14.44968700}],
+  "The Miners Coffee Letna":          [{lat:50.09943800,lng:14.43093700}],
+  "The Miners Coffee Roastery":       [{lat:50.10404780,lng:14.46595240}],
+  "The Winery":                       [{lat:50.10368700,lng:14.44668700}],
+  "TVEE Coffee":                      [{lat:50.10193700,lng:14.44393800}],
+  "TYPIKA Karlín":                    [{lat:50.09309830,lng:14.45606540}],
+  "Veltlin":                          [{lat:50.09390680,lng:14.45694550}],
+  "Vnitroblok":                       [{lat:50.10193700,lng:14.44931200}],
+  "Ye's Cafe":                        [{lat:50.10030610,lng:14.42434030}],
+  "Y'es coffee and wine":             [{lat:50.09635040,lng:14.45167420}],
+  "Ye's coffee and wine":             [{lat:50.09635040,lng:14.45167420}],
+};
+
+// Adds venue circle markers to lMap at exact Supabase coordinates.
+// Falls back to approximate district-centre position for venues not in the lookup.
+function venuePopupHtml(node, col) {
+  const d = VENUE_DETAILS[node.name] || {};
+  const tags = (d.tags || []).slice(0, 5);
+  const tagHtml = tags.map(t =>
+    `<span style="background:#1e293b;color:#94a3b8;font-size:10px;padding:2px 7px;border-radius:3px;white-space:nowrap">${t}</span>`
+  ).join('');
+  const meta = [d.cat, d.food, d.din, d.seat].filter(Boolean).join(' · ');
+  const imgHtml = d.img
+    ? `<img src="${d.img}" style="width:100%;height:140px;object-fit:cover;border-radius:6px;margin-bottom:10px;display:block"
+         onerror="this.style.display='none'">`
+    : '';
+  const desc = d.desc ? `<p style="font-size:12px;color:#cbd5e1;margin:6px 0 8px;line-height:1.55">${d.desc}</p>` : '';
+  const addr = d.addr ? `<div style="color:#64748b;font-size:11px;margin-top:6px">&#x1F4CD; ${d.addr}</div>` : '';
+
+  return `<div style="width:270px;font-family:system-ui,sans-serif;padding:2px">
+    ${imgHtml}
+    <div style="font-weight:700;font-size:14px;color:#f1f5f9;margin-bottom:5px">${node.name}</div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+      <span style="background:${col}22;color:${col};font-size:11px;padding:2px 9px;border-radius:4px;font-weight:600">${node.tier}</span>
+      ${meta ? `<span style="color:#94a3b8;font-size:11px">${meta}</span>` : ''}
+    </div>
+    ${desc}
+    ${tags.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">${tagHtml}</div>` : ''}
+    ${addr}
+  </div>`;
+}
+
+function geocodeAndAddVenues(country) {
+  const queues = {};
+  for (const [name, locs] of Object.entries(VENUE_REAL_COORDS)) {
+    queues[name] = [...locs];
+  }
+
+  for (const node of VENUE_NODES) {
+    const queue = queues[node.name];
+    const real  = queue && queue.length > 0 ? queue.shift() : null;
+    const lat   = real ? real.lat : node.lat;
+    const lng   = real ? real.lng : node.lng;
+    const col   = TIER_HEX[node.tier] || '#94a3b8';
+    const vm    = L.circleMarker([lat, lng], {
+      radius: 6, fillColor: col, color: '#0f172a', weight: 1,
+      fillOpacity: real ? 0.95 : 0.55
+    }).addTo(lMap).bindPopup(venuePopupHtml(node, col), {
+      maxWidth: 290, className: 'venue-popup'
+    });
+    lMapLayers.push(vm);
+  }
+}
+
+function buildVenueNodes() {
+  const buckets = { L:[], H:[], T:[], K:[], B:[] };
+  for (const v of VENUES) buckets[v.dist || 'L'].push(v);
+
+  const golden       = 2.399963;
+  const KM_PER_DEG   = 111.0; // 1° latitude ≈ 111 km everywhere
+  VENUE_NODES = [];
+  for (const [key, list] of Object.entries(buckets)) {
+    const { lat, lng, spread } = DISTRICTS[key]; // spread is in km
+    // cos(lat) shrinks a degree of longitude at this latitude
+    const cosLat = Math.cos(lat * Math.PI / 180);
+    const n = list.length;
+    list.forEach((v, i) => {
+      // r is in km; golden-angle sunflower spiral within that radius
+      const r   = Math.sqrt(i / Math.max(n, 1)) * spread;
+      const ang = i * golden;
+      // Convert km offsets to absolute degrees before calling lonLatToSphere
+      const lon  = lng + (r * Math.cos(ang)) / (KM_PER_DEG * cosLat);
+      const lat2 = Math.max(-85, Math.min(85, lat + (r * Math.sin(ang)) / KM_PER_DEG));
+      VENUE_NODES.push({ name: v.name, tier: v.tier, dist: key, lng: lon, lat: lat2, dir: lonLatToSphere(lon, lat2) });
+    });
+  }
+}
+
+// ── Leaflet flat map view ──────────────────────────────────────────────────
+function initLeafletIfNeeded() {
+  if (lMap) return;
+  lMap = L.map('map-view', { zoomControl: false });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(lMap);
+  L.control.zoom({ position: 'bottomright' }).addTo(lMap);
+}
+
+function extractFeatures(data) {
+  if (!data) return [];
+  if (data.type === 'Topology') {
+    const key = Object.keys(data.objects)[0];
+    return topojson.feature(data, data.objects[key]).features || [];
+  }
+  return data.features || [];
+}
+
+function featureName(f) {
+  const p = f.properties || {};
+  return p.name || p.NAME || p.NAME_1 || p.HASC_1 || p.admin1 || '';
+}
+
+async function showMapView(country, focusCity) {
+  initLeafletIfNeeded();
+
+  // Hide globe canvas, show map
+  document.getElementById('globe').style.display = 'none';
+  document.getElementById('map-view').style.display = 'block';
+  // Hide globe-only panels in map mode
+  document.getElementById('legend').style.display = 'none';
+  document.getElementById('venue-legend').style.display = 'none';
+  document.getElementById('hint').style.display = 'none';
+
+  // Clear previous layers
+  lMapLayers.forEach(l => { try { lMap.removeLayer(l); } catch(e){} });
+  lMapLayers = [];
+
+  const center = COUNTRY_CENTERS[country] || { lat: focusCity.lat, lng: focusCity.lng };
+  const initZoom = country === 'Malta' ? 11 : 7;
+  lMap.setView([center.lat, center.lng], initZoom);
+  lMap.invalidateSize();
+
+  // Load + draw admin regions
+  const adminUrl = ADMIN_URLS[country];
+  if (adminUrl) {
+    const loadEl = document.getElementById('map-region-load');
+    loadEl.style.display = 'block';
+    try {
+      let data = ADMIN_CACHE[country];
+      if (!data) {
+        const resp = await fetch(adminUrl);
+        if (resp.ok) { data = await resp.json(); ADMIN_CACHE[country] = data; }
+      }
+      if (data) {
+        const features = extractFeatures(data);
+        features.forEach((f, i) => {
+          const layer = L.geoJSON(f, {
+            style: () => ({
+              fillColor: REGION_FILLS[i % REGION_FILLS.length],
+              fillOpacity: 0.30,
+              color: '#6366f1',
+              weight: 1.0,
+              opacity: 0.65
+            })
+          });
+          const label = featureName(f);
+          if (label) layer.bindTooltip(label, { sticky: true, className: '' });
+          layer.addTo(lMap);
+          lMapLayers.push(layer);
+        });
+      }
+    } catch(e) { /* admin data optional */ }
+    loadEl.style.display = 'none';
+  }
+
+  // City markers
+  for (const city of CITY_DATABASE[country] || []) {
+    const hasV = city.hasVenues;
+    const col  = hasV ? '#fbbf24' : '#818cf8';
+    const marker = L.circleMarker([city.lat, city.lng], {
+      radius: 9, fillColor: col, color: '#0f172a', weight: 2, fillOpacity: 0.95
+    }).addTo(lMap);
+    marker.bindTooltip(`<b>${city.name}</b>${hasV ? '<br><span style="color:#fbbf24">★ venue data</span>' : ''}`, { direction: 'top' });
+    lMapLayers.push(marker);
+  }
+
+  // Venue markers — geocoded to real OSM positions, cached in localStorage
+  if (CITY_DATABASE[country]?.some(c => c.hasVenues)) {
+    geocodeAndAddVenues(country);
+  }
+
+  // If a focus city was passed, also fly to it at street level
+  if (focusCity) {
+    setTimeout(() => {
+      lMap.flyTo([focusCity.lat, focusCity.lng], focusCity.hasVenues ? 13 : (focusCity.zoom ?? 11), { duration: 1.5 });
+    }, 400);
+  }
+}
+
+function hideMapView() {
+  document.getElementById('map-view').style.display = 'none';
+  document.getElementById('globe').style.display = 'block';
+  document.getElementById('legend').style.display = '';
+  document.getElementById('venue-legend').style.display = '';
+  document.getElementById('hint').style.display = '';
+}
+
+// ── Interaction constants ──────────────────────────────────────────────────
+const DRAG_SENS   = 0.004;
+const SCROLL_SENS = 0.0008;
+const MIN_ZOOM    = 0.3;
+const MAX_ZOOM    = 6.0;
+const ROT_X_LIMIT = Math.PI * 0.48;
+const GLOBE_SPEED = 0.045;
+const TARGET_FPS  = 1000 / 30;
+
+// ── Main ────────────────────────────────────────────────────────────────────
+async function main() {
+  const fill = p => { document.getElementById('progress-fill').style.width = (p * 100) + '%'; };
+
+  fill(0.1);
+  const world = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json')
+    .then(r => r.json());
+  fill(0.5);
+
+  const { tierFills, outlines, countryRings } = buildCountryData(world);
+  TIER_FILLS    = tierFills;
+  ALL_OUTLINES  = outlines;
+  COUNTRY_RINGS = countryRings;
+
+  // Malta (ISO 470) and Gozo are too small to survive even 50m simplification —
+  // inject hand-traced polygons directly into the Very High tier.
+  const MALTA_MAIN = [
+    [14.34,35.96],[14.38,36.02],[14.45,36.07],[14.50,36.07],
+    [14.57,36.00],[14.58,35.88],[14.52,35.82],[14.42,35.82],
+    [14.32,35.87],[14.30,35.92],[14.34,35.96],
+  ];
+  const MALTA_GOZO = [
+    [14.19,36.04],[14.22,36.08],[14.29,36.07],[14.31,36.03],
+    [14.25,35.99],[14.19,36.04],
+  ];
+  for (const coords of [MALTA_MAIN, MALTA_GOZO]) {
+    const ring = coords.map(([lo, la]) => lonLatToSphere(lo, la));
+    TIER_FILLS[0].push(ring);
+    ALL_OUTLINES.push(ring);
+    if (!COUNTRY_RINGS[470]) COUNTRY_RINGS[470] = [];
+    COUNTRY_RINGS[470].push(ring);
+  }
+  fill(1.0);
+  buildVenueNodes();
+
+  document.getElementById('loading').style.display = 'none';
+
+  const canvas = document.getElementById('globe');
+  const ctx    = canvas.getContext('2d');
+
+  // ── Mutable state ──────────────────────────────────────────────────────
+  let rotY        = utcInitialRotY();
+  let rotX        = 0;
+  let zoom        = 1.0;
+  let isDragging  = false;
+  let lastMX      = 0, lastMY = 0;
+  let starTime    = 0;
+  let solarPhase  = -Math.PI * 0.5;
+  let animId;
+  let lastTime    = performance.now();
+  let lastDraw    = 0;
+
+  // Navigation target (null = free-spinning)
+  let navY = null, navX = 0, navZ = 1.0;
+
+  // Country view mode
+  let mode = 'globe';
+  let selectedCountry = null;
+  let countryViewTime = 0;
+  let countryBaseY = 0, countryBaseX = 0, countryBaseZ = 1.0;
+
+  // Cached gradients — rebuilt only on resize / zoom change
+  let gradW = 0, gradH = 0, gradZ = 0;
+  let oceanGrad = null, limbGrad = null, nightGrad = null;
+  let nightSsx  = -9999, nightSsy = -9999, nightR = 0;
+
+  function buildSizeGrads(cx, cy, R) {
+    oceanGrad = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.2, R * 0.05, cx, cy, R);
+    oceanGrad.addColorStop(0,   "rgba(20,42,78,0.82)");
+    oceanGrad.addColorStop(0.6, "rgba(12,30,62,0.76)");
+    oceanGrad.addColorStop(1,   "rgba(8,18,42,0.70)");
+
+    limbGrad = ctx.createRadialGradient(cx, cy, R * 0.88, cx, cy, R * 1.02);
+    limbGrad.addColorStop(0, "rgba(99,102,241,0.00)");
+    limbGrad.addColorStop(1, "rgba(99,102,241,0.22)");
+  }
+
+  function buildNightGrad(ssx, ssy, R) {
+    nightGrad = ctx.createRadialGradient(ssx, ssy, 0, ssx, ssy, R * 2.1);
+    nightGrad.addColorStop(0,    "rgba(0,0,0,0)");
+    nightGrad.addColorStop(0.44, "rgba(0,0,0,0)");
+    nightGrad.addColorStop(0.50, "rgba(0,8,30,0.35)");
+    nightGrad.addColorStop(0.62, "rgba(0,5,22,0.78)");
+    nightGrad.addColorStop(0.80, "rgba(0,3,16,0.90)");
+    nightGrad.addColorStop(1.0,  "rgba(0,2,12,0.92)");
+    nightSsx = ssx; nightSsy = ssy; nightR = R;
+  }
+
+  // ── Interaction ───────────────────────────────────────────────────────
+  canvas.style.cursor = 'grab';
+  let mouseX = -9999, mouseY = -9999;
+
+  canvas.addEventListener('mousedown', e => {
+    isDragging = true; lastMX = e.clientX; lastMY = e.clientY;
+    canvas.style.cursor = 'grabbing';
+    navY = null; // cancel any active navigation animation
+  });
+  window.addEventListener('mousemove', e => {
+    mouseX = e.clientX; mouseY = e.clientY;
+    if (!isDragging) return;
+    rotY -= (e.clientX - lastMX) * DRAG_SENS;
+    rotX -= (e.clientY - lastMY) * DRAG_SENS;
+    rotX  = Math.max(-ROT_X_LIMIT, Math.min(ROT_X_LIMIT, rotX));
+    lastMX = e.clientX; lastMY = e.clientY;
+  });
+  window.addEventListener('mouseup', () => {
+    isDragging = false; canvas.style.cursor = 'grab';
+  });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const d = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+    const f = d > 0 ? 1 / (1 + Math.abs(d) * SCROLL_SENS) : 1 + Math.abs(d) * SCROLL_SENS;
+    zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * f));
+  }, { passive: false });
+  canvas.addEventListener('dblclick', () => { rotX = 0; zoom = 1.0; });
+
+  let lastTX = 0, lastTY = 0;
+  canvas.addEventListener('touchstart', e => {
+    isDragging = true; lastTX = e.touches[0].clientX; lastTY = e.touches[0].clientY;
+  }, { passive: true });
+  window.addEventListener('touchend',  () => { isDragging = false; });
+  window.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    rotY -= (e.touches[0].clientX - lastTX) * DRAG_SENS;
+    rotX -= (e.touches[0].clientY - lastTY) * DRAG_SENS;
+    rotX  = Math.max(-ROT_X_LIMIT, Math.min(ROT_X_LIMIT, rotX));
+    lastTX = e.touches[0].clientX; lastTY = e.touches[0].clientY;
+    e.preventDefault();
+  }, { passive: false });
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    gradW = 0; // force gradient rebuild
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) lastTime = performance.now();
+  });
+
+  // Show hint briefly on first interaction
+  const hint = document.getElementById('hint');
+  hint.classList.add('visible');
+  setTimeout(() => hint.classList.remove('visible'), 4000);
+
+  // ── City navigation ────────────────────────────────────────────────────
+  function navigateTo(lat, lng, hasVenues) {
+    // rotY = lng*(π/180) - π/2 brings the longitude to face the viewer
+    // rotX = lat*(π/180) tilts the globe to show the latitude at center
+    navY = lng * Math.PI / 180 - Math.PI / 2;
+    navX = Math.max(-ROT_X_LIMIT, Math.min(ROT_X_LIMIT, lat * Math.PI / 180));
+    navZ = hasVenues ? 5.0 : 3.2;
+  }
+
+  const countryEl = document.getElementById('country-select');
+  const cityEl    = document.getElementById('city-select');
+  const badgeEl   = document.getElementById('city-badge');
+
+  // Populate country list
+  Object.keys(CITY_DATABASE).sort().forEach(c => {
+    const o = document.createElement('option'); o.value = c; o.textContent = c;
+    countryEl.appendChild(o);
+  });
+
+  countryEl.addEventListener('change', () => {
+    // Exit map/country mode when switching countries
+    if (mode === 'map' || mode === 'country') {
+      mode = 'globe';
+      selectedCountry = null;
+      document.getElementById('country-view-header').style.display = 'none';
+      hideMapView();
+    }
+    const cities = CITY_DATABASE[countryEl.value] || [];
+    cityEl.innerHTML = '<option value="">Select city…</option>';
+    cities.forEach(c => {
+      const o = document.createElement('option');
+      o.value = JSON.stringify(c);
+      o.textContent = c.name + (c.hasVenues ? '  ·  venues' : '');
+      cityEl.appendChild(o);
+    });
+    cityEl.disabled = cities.length === 0;
+    badgeEl.textContent = '';
+    // Fly globe to show the selected country
+    if (countryEl.value && COUNTRY_CENTERS[countryEl.value]) {
+      const { lat, lng } = COUNTRY_CENTERS[countryEl.value];
+      navigateTo(lat, lng, false);
+    }
+  });
+
+  cityEl.addEventListener('change', () => {
+    if (!cityEl.value) return;
+    const city    = JSON.parse(cityEl.value);
+    const country = countryEl.value;
+
+    selectedCountry = country;
+    mode = 'map';
+
+    // Show header
+    document.getElementById('country-view-header').style.display = 'flex';
+    document.getElementById('country-name-title').textContent = country;
+
+    // City badges in header
+    const cityListEl = document.getElementById('country-city-list');
+    cityListEl.innerHTML = '';
+    (CITY_DATABASE[country] || []).forEach(c => {
+      const badge = document.createElement('span');
+      badge.className = 'city-pin-badge' + (c.hasVenues ? ' has-venues' : '');
+      badge.textContent = c.name + (c.hasVenues ? ' ★' : '');
+      cityListEl.appendChild(badge);
+    });
+
+    badgeEl.textContent = city.hasVenues
+      ? `${VENUES.length} venues in ${city.name}`
+      : `No venues yet for ${city.name}`;
+
+    showMapView(country, city);
+  });
+
+  document.getElementById('btn-back').addEventListener('click', () => {
+    mode = 'globe';
+    selectedCountry = null;
+    document.getElementById('country-view-header').style.display = 'none';
+    navY = null;
+    badgeEl.textContent = '';
+    countryEl.value = '';
+    cityEl.innerHTML = '<option value="">Select city…</option>';
+    cityEl.disabled = true;
+    hideMapView();
+  });
+
+  // ── Combined Y-then-X rotation ────────────────────────────────────────
+  // Returns [rx, ry, rz] for a point on the unit sphere after both rotations.
+  function rot(dx, dy, dz) {
+    const _rx = dx * cosY + dz * sinY;
+    const _iz = -dx * sinY + dz * cosY;
+    return [_rx, dy * cosX - _iz * sinX, dy * sinX + _iz * cosX];
+  }
+
+  // These are hot-patched in the draw loop before rot() is called.
+  let cosX, sinX, cosY, sinY;
+
+  // ── Draw loop ──────────────────────────────────────────────────────────
+  function draw(ts) {
+    const dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+
+    // Advance physics every frame for responsive drag feel
+    if (mode === 'map') {
+      // Leaflet owns the map view — globe just idles
+    } else if (mode === 'country') {
+      // Static 3D country view — gentle rocking for 3D feel
+      countryViewTime += dt;
+      rotY = countryBaseY + 0.04 * Math.sin(countryViewTime * 0.25);
+      rotX = countryBaseX;
+      zoom = countryBaseZ;
+    } else if (navY !== null) {
+      // Smooth navigation — exponential ease to target
+      const k = 1 - Math.exp(-dt * 5);
+      let dy = navY - rotY;
+      while (dy >  Math.PI) dy -= 2 * Math.PI;
+      while (dy < -Math.PI) dy += 2 * Math.PI;
+      rotY += dy * k;
+      rotX += (navX - rotX) * k;
+      zoom += (navZ - zoom) * k;
+      if (Math.abs(dy) < 0.001 && Math.abs(navX - rotX) < 0.001 && Math.abs(navZ - zoom) < 0.005) {
+        rotY = navY; rotX = navX; zoom = navZ; navY = null;
+      }
+    } else if (!isDragging) {
+      rotY += dt * GLOBE_SPEED;
+    }
+    for (let i = 0; i < CITIES.length; i++) cityPhases[i] += dt * CITIES[i].spd;
+    starTime   += dt;
+    solarPhase += dt * 0.012; // background sun: one revolution ≈ 8.7 min
+
+    // Skip globe rendering entirely in map mode
+    if (mode === 'map') { animId = requestAnimationFrame(draw); return; }
+
+    // Skip render if ahead of target FPS (but not when dragging)
+    if (!isDragging && ts - lastDraw < TARGET_FPS) {
+      animId = requestAnimationFrame(draw); return;
+    }
+    lastDraw = ts;
+
+    const W  = canvas.width;
+    const H  = canvas.height;
+    const R  = Math.min(W, H) * 0.36 * zoom;
+    const cx = W * 0.5;
+    const cy = H * 0.5;
+
+    cosX = Math.cos(rotX); sinX = Math.sin(rotX);
+    cosY = Math.cos(rotY); sinY = Math.sin(rotY);
+
+    if (W !== gradW || H !== gradH || zoom !== gradZ) {
+      buildSizeGrads(cx, cy, R);
+      gradW = W; gradH = H; gradZ = zoom; nightGrad = null;
+    }
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, W, H);
+
+    // ── 1. Starfield ─────────────────────────────────────────────────
+    for (const s of STARS) {
+      const alpha = s.b * (0.65 + 0.35 * Math.sin(starTime * s.ts + s.tp));
+      ctx.beginPath();
+      ctx.arc(s.xf * W, s.yf * H, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(210,220,255,${alpha.toFixed(2)})`;
+      ctx.fill();
+    }
+
+    // ── 2. Background sun (orbits behind globe) ───────────────────────
+    {
+      const vmin   = Math.min(W, H);
+      const solarR = vmin * 0.42;
+      const tilt   = 0.60;
+      const sx     = cx + Math.cos(solarPhase) * solarR;
+      const sy     = cy + Math.sin(solarPhase) * solarR * tilt;
+      const sunR   = vmin * 0.020;
+      const pulse  = 0.82 + 0.18 * Math.sin(starTime * 0.55);
+
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, solarR, solarR * tilt, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(253,224,71,0.04)";
+      ctx.lineWidth   = 0.8;
+      ctx.stroke();
+
+      const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, sunR * 5.5);
+      glow.addColorStop(0,    `rgba(253,224,71,${(0.38 * pulse).toFixed(2)})`);
+      glow.addColorStop(0.35, `rgba(251,191,36,${(0.14 * pulse).toFixed(2)})`);
+      glow.addColorStop(1,    "rgba(251,191,36,0)");
+      ctx.beginPath();
+      ctx.arc(sx, sy, sunR * 5.5, 0, Math.PI * 2);
+      ctx.fillStyle = glow;
+      ctx.fill();
+
+      const core = ctx.createRadialGradient(sx - sunR * 0.3, sy - sunR * 0.3, 0, sx, sy, sunR);
+      core.addColorStop(0,   `rgba(255,255,210,${pulse.toFixed(2)})`);
+      core.addColorStop(0.5, `rgba(253,224,71,${(0.92 * pulse).toFixed(2)})`);
+      core.addColorStop(1,   `rgba(234,179,8,${(0.70 * pulse).toFixed(2)})`);
+      ctx.beginPath();
+      ctx.arc(sx, sy, sunR, 0, Math.PI * 2);
+      ctx.fillStyle = core;
+      ctx.fill();
+    }
+
+    // ── 3. Ocean disc ─────────────────────────────────────────────────
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fillStyle = oceanGrad;
+    ctx.fill();
+
+    // ── 4. Continent fills — one batched path per density tier ────────
+    for (let t = 0; t < TIERS.length; t++) {
+      const rings = TIER_FILLS[t];
+      if (!rings.length) continue;
+      ctx.beginPath();
+      for (const ring of rings) {
+        let down = false;
+        for (const [dx, dy, dz] of ring) {
+          const [rx, ry, rz] = rot(dx, dy, dz);
+          if (rz < -0.04) { down = false; continue; }
+          const sx = cx - rx * R, sy = cy - ry * R;
+          if (!down) { ctx.moveTo(sx, sy); down = true; }
+          else ctx.lineTo(sx, sy);
+        }
+        ctx.closePath();
+      }
+      ctx.fillStyle = TIERS[t].fill;
+      ctx.fill("evenodd");
+    }
+
+    // ── 4b. Country highlight fill (country view only) ────────────────
+    if (mode === 'country' && selectedCountry) {
+      const cid   = COUNTRY_IDS[selectedCountry];
+      const rings = COUNTRY_RINGS[cid] || [];
+      if (rings.length) {
+        ctx.beginPath();
+        for (const ring of rings) {
+          let down = false;
+          for (const [dx, dy, dz] of ring) {
+            const [rx, ry, rz] = rot(dx, dy, dz);
+            if (rz < -0.04) { down = false; continue; }
+            const sx = cx - rx * R, sy = cy - ry * R;
+            if (!down) { ctx.moveTo(sx, sy); down = true; } else ctx.lineTo(sx, sy);
+          }
+          ctx.closePath();
+        }
+        ctx.fillStyle = "rgba(99,102,241,0.40)";
+        ctx.fill("evenodd");
+      }
+    }
+
+    // ── 5. Day / night overlay (real UTC solar position) ──────────────
+    {
+      const utcSecs = (Date.now() / 1000) % 86400;
+      const sunLon  = (0.5 - utcSecs / 86400) * 2 * Math.PI;
+      const decl    = solarDeclination();
+      const [sdx, sdy, sdz] = lonLatToSphere(sunLon * 180 / Math.PI, decl * 180 / Math.PI);
+      const [srx, sry]      = rot(sdx, sdy, sdz);
+      const ssx = cx - srx * R;
+      const ssy = cy - sry * R;
+
+      if (!nightGrad || nightR !== R || Math.abs(ssx - nightSsx) > 3 || Math.abs(ssy - nightSsy) > 3) {
+        buildNightGrad(ssx, ssy, R);
+      }
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.fillStyle = nightGrad;
+      ctx.fillRect(cx - R * 2.2, cy - R * 2.2, R * 4.4, R * 4.4);
+      ctx.restore();
+    }
+
+    // ── 6. Country border outlines — single batched stroke ────────────
+    ctx.beginPath();
+    for (const ring of ALL_OUTLINES) {
+      let down = false;
+      for (const [dx, dy, dz] of ring) {
+        const [rx, ry, rz] = rot(dx, dy, dz);
+        if (rz < -0.05) { down = false; continue; }
+        const sx = cx - rx * R, sy = cy - ry * R;
+        if (!down) { ctx.moveTo(sx, sy); down = true; }
+        else ctx.lineTo(sx, sy);
+      }
+    }
+    ctx.strokeStyle = "rgba(110,130,100,0.45)";
+    ctx.lineWidth   = 0.7;
+    ctx.stroke();
+
+    // ── 6b. Selected country bright border (country view only) ────────
+    if (mode === 'country' && selectedCountry) {
+      const cid   = COUNTRY_IDS[selectedCountry];
+      const rings = COUNTRY_RINGS[cid] || [];
+      if (rings.length) {
+        ctx.beginPath();
+        for (const ring of rings) {
+          let down = false;
+          for (const [dx, dy, dz] of ring) {
+            const [rx, ry, rz] = rot(dx, dy, dz);
+            if (rz < -0.05) { down = false; continue; }
+            const sx = cx - rx * R, sy = cy - ry * R;
+            if (!down) { ctx.moveTo(sx, sy); down = true; } else ctx.lineTo(sx, sy);
+          }
+        }
+        ctx.strokeStyle = "rgba(129,140,248,0.90)";
+        ctx.lineWidth   = 1.8;
+        ctx.stroke();
+      }
+    }
+
+    // ── 7. Limb (atmosphere) glow — indigo ring ───────────────────────
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.strokeStyle = limbGrad;
+    ctx.lineWidth   = R * 0.07;
+    ctx.stroke();
+
+    // ── 8+9. City orbits & satellites (globe mode only) ──────────────
+    if (mode === 'globe') {
+      ctx.beginPath();
+      for (let i = 0; i < CITIES.length; i++) {
+        const OR     = R * CITIES[i].rf;
+        const incRad = CITIES[i].inc * Math.PI / 180;
+        const cosI   = Math.cos(incRad), sinI = Math.sin(incRad);
+        let down = false;
+        for (let s = 0; s <= 180; s++) {
+          const t  = (s / 180) * 2 * Math.PI;
+          const ox = Math.cos(t), oy = Math.sin(t) * sinI, oz = Math.sin(t) * cosI;
+          const [rx, ry, rz] = rot(ox, oy, oz);
+          if (rz < -0.15) { down = false; continue; }
+          const sx = cx - rx * OR, sy = cy - ry * OR;
+          if (!down) { ctx.moveTo(sx, sy); down = true; } else ctx.lineTo(sx, sy);
+        }
+      }
+      ctx.strokeStyle = "rgba(99,102,241,0.18)";
+      ctx.lineWidth   = 0.9;
+      ctx.stroke();
+
+      for (let i = 0; i < CITIES.length; i++) {
+        const city    = CITIES[i];
+        const count   = CITY_VENUE_COUNTS[city.name] || 0;
+        // Size scales with sqrt(venueCount) so growth is perceptible but not explosive
+        const bodyR   = 3.5 + Math.sqrt(count) * 0.45;
+        const armLen  = 8   + Math.sqrt(count) * 0.35;
+        const wingW   = 4   + Math.sqrt(count) * 0.20;
+        // Venue cities glow amber; empty cities stay indigo
+        const [cr,cg,cb] = count > 0 ? [251,191,36] : [129,140,248];
+        const [pr,pg,pb] = count > 0 ? [234,148,10] : [99,102,241];
+
+        const OR     = R * city.rf;
+        const incRad = city.inc * Math.PI / 180;
+        const cosI   = Math.cos(incRad), sinI = Math.sin(incRad);
+        const t      = cityPhases[i];
+        const sox    = Math.cos(t), soy = Math.sin(t) * sinI, soz = Math.sin(t) * cosI;
+        const [srx, sry, srz] = rot(sox, soy, soz);
+        if (srz < -0.1) continue;
+        const ssx   = cx - srx * OR, ssy = cy - sry * OR;
+        const alpha = 0.5 + Math.max(0, srz) * 0.5;
+        const a1    = alpha.toFixed(2);
+
+        // Outer glow for venue cities
+        if (count > 0) {
+          const glowR = bodyR * 2.8;
+          const glow  = ctx.createRadialGradient(ssx, ssy, bodyR * 0.5, ssx, ssy, glowR);
+          glow.addColorStop(0, `rgba(${cr},${cg},${cb},${(alpha * 0.35).toFixed(2)})`);
+          glow.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+          ctx.beginPath(); ctx.arc(ssx, ssy, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = glow; ctx.fill();
+        }
+
+        // Body
+        ctx.beginPath(); ctx.arc(ssx, ssy, bodyR, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${cr},${cg},${cb},${a1})`; ctx.fill();
+
+        // Solar panel bar
+        ctx.strokeStyle = `rgba(${cr},${cg},${cb},${(alpha*0.7).toFixed(2)})`; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.moveTo(ssx-armLen,ssy); ctx.lineTo(ssx+armLen,ssy); ctx.stroke();
+
+        // Panel wings
+        ctx.fillStyle = `rgba(${pr},${pg},${pb},${(alpha*0.5).toFixed(2)})`;
+        ctx.fillRect(ssx-armLen-wingW, ssy-2.5, wingW, 5);
+        ctx.fillRect(ssx+armLen,       ssy-2.5, wingW, 5);
+
+        // Label pill
+        const labelX = ssx + armLen + wingW + 4;
+        ctx.font = "bold 11px monospace"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        const tw = ctx.measureText(city.name).width;
+        // Append venue count badge when city has data
+        const badge   = count > 0 ? `  ${count}` : '';
+        const fullTxt = city.name + badge;
+        const ftw     = ctx.measureText(fullTxt).width;
+        ctx.fillStyle = `rgba(15,23,42,${(alpha*0.7).toFixed(2)})`;
+        ctx.beginPath(); ctx.roundRect(labelX-2, ssy-8, ftw+8, 16, 3); ctx.fill();
+        ctx.fillStyle = `rgba(${cr},${cg},${cb},${(alpha*0.95).toFixed(2)})`;
+        ctx.fillText(city.name, labelX+2, ssy);
+        if (count > 0) {
+          ctx.fillStyle = `rgba(${cr},${cg},${cb},${(alpha*0.6).toFixed(2)})`;
+          ctx.fillText(badge, labelX+2+tw, ssy);
+        }
+      }
+    }
+
+    // ── 9b. City pins (country view only) ────────────────────────────
+    if (mode === 'country' && selectedCountry) {
+      const cities = CITY_DATABASE[selectedCountry] || [];
+      ctx.font = "bold 12px monospace"; ctx.textAlign = "center";
+      for (const city of cities) {
+        const [dx, dy, dz] = lonLatToSphere(city.lng, city.lat);
+        const [rx, ry, rz] = rot(dx, dy, dz);
+        if (rz < 0) continue;
+        const px = cx - rx * R, py = cy - ry * R;
+        const alpha = 0.6 + rz * 0.4;
+        const [pr, pg, pb] = city.hasVenues ? [251,191,36] : [129,140,248];
+        // Glow ring
+        ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${pr},${pg},${pb},${(alpha*0.15).toFixed(2)})`; ctx.fill();
+        // Pin dot
+        ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${pr},${pg},${pb},${alpha.toFixed(2)})`; ctx.fill();
+        ctx.strokeStyle = `rgba(255,255,255,${(alpha*0.6).toFixed(2)})`; ctx.lineWidth = 1;
+        ctx.stroke();
+        // Label
+        ctx.textBaseline = "bottom";
+        const tw2 = ctx.measureText(city.name).width;
+        ctx.fillStyle = "rgba(15,23,42,0.75)";
+        ctx.beginPath(); ctx.roundRect(px - tw2/2 - 4, py - 22, tw2 + 8, 14, 3); ctx.fill();
+        ctx.fillStyle = `rgba(226,232,240,${alpha.toFixed(2)})`;
+        ctx.fillText(city.name, px, py - 9);
+      }
+    }
+
+    // ── 10. Venue spires — rooted at each venue's district on the globe ──
+    {
+      // Quick visibility check: is the Prague area at all facing the viewer?
+      const [chkX, chkY, chkZ] = rot(...lonLatToSphere(PRAGUE_LON, PRAGUE_LAT));
+      if (chkZ > -0.3) {
+        const zBoost = 1 + (Math.max(1, zoom) - 1) * 0.22;
+        let hoveredNode = null, hoveredDist = 14;
+
+        for (let i = 0; i < VENUE_NODES.length; i++) {
+          const node = VENUE_NODES[i];
+          const [dx, dy, dz] = node.dir;
+
+          // Root = surface of the globe at this spire's direction
+          const [srx, sry, srz] = rot(dx, dy, dz);
+          if (srz < -0.05) continue;
+          const rootX = cx - srx * R;
+          const rootY = cy - sry * R;
+
+          // Tip = same direction scaled outward by tier height × zoom boost
+          const h = (TIER_NODE_HEIGHTS[node.tier] || 1.09) * zBoost;
+          const [trx, try_, trz] = rot(dx * h, dy * h, dz * h);
+          const tipX = cx - trx * R;
+          const tipY = cy - try_ * R;
+
+          const depth = 0.3 + Math.max(0, srz) * 0.7;
+          const [r2, g2, b2] = TIER_NODE_COLORS[node.tier] || [148, 163, 184];
+          const lw = (TIER_LINE_WIDTHS[node.tier] || 0.7) * Math.max(1, zoom * 0.6);
+
+          // Gradient spire: transparent at root → full color at tip
+          const grad = ctx.createLinearGradient(rootX, rootY, tipX, tipY);
+          grad.addColorStop(0,   `rgba(${r2},${g2},${b2},0)`);
+          grad.addColorStop(0.35,`rgba(${r2},${g2},${b2},${(depth * 0.4).toFixed(2)})`);
+          grad.addColorStop(1,   `rgba(${r2},${g2},${b2},${depth.toFixed(2)})`);
+          ctx.beginPath();
+          ctx.moveTo(rootX, rootY);
+          ctx.lineTo(tipX, tipY);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = lw;
+          ctx.stroke();
+
+          // Bright tip dot
+          const tipR = (TIER_NODE_SIZES[node.tier] || 1.5) * Math.max(1, zoom * 0.5);
+          ctx.beginPath();
+          ctx.arc(tipX, tipY, tipR, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${r2},${g2},${b2},${depth.toFixed(2)})`;
+          ctx.fill();
+
+          // Hover
+          const ddx = tipX - mouseX, ddy = tipY - mouseY;
+          if (Math.sqrt(ddx*ddx + ddy*ddy) < hoveredDist) {
+            hoveredDist = Math.sqrt(ddx*ddx + ddy*ddy);
+            hoveredNode = { name: node.name, tier: node.tier, dist: node.dist, sx: tipX, sy: tipY };
+          }
+        }
+
+        // District anchor dots — small glowing pins at each neighborhood center
+        for (const [key, dc] of Object.entries(DISTRICTS)) {
+          const [ax, ay, az] = rot(...lonLatToSphere(dc.lng, dc.lat));
+          if (az < 0) continue;
+          const asx = cx - ax * R, asy = cy - ay * R;
+          const da  = 0.5 + az * 0.5;
+          ctx.beginPath();
+          ctx.arc(asx, asy, 3, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,255,255,${da.toFixed(2)})`;
+          ctx.fill();
+        }
+
+        // Hover tooltip
+        if (hoveredNode) {
+          const [r2, g2, b2] = TIER_NODE_COLORS[hoveredNode.tier] || [148, 163, 184];
+          ctx.font = "bold 11px monospace";
+          ctx.textAlign    = "left";
+          ctx.textBaseline = "middle";
+          const tw = ctx.measureText(hoveredNode.name).width;
+          const tx = hoveredNode.sx + 12, ty = hoveredNode.sy;
+          ctx.fillStyle = "rgba(15,23,42,0.90)";
+          ctx.beginPath();
+          ctx.roundRect(tx - 4, ty - 9, tw + 12, 18, 4);
+          ctx.fill();
+          ctx.fillStyle = `rgb(${r2},${g2},${b2})`;
+          ctx.fillText(hoveredNode.name, tx + 2, ty);
+        }
+      }
+    }
+
+    animId = requestAnimationFrame(draw);
+  }
+
+  animId = requestAnimationFrame(draw);
+}
+
+main().catch(err => {
+  const el = document.getElementById('loading');
+  el.innerHTML = `<p style="color:#ef4444;font-size:13px">Error: ${err.message}</p>`;
+  console.error(err);
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// GREEN 1 — Candidate Universe Engine
+// ══════════════════════════════════════════════════════════════════════════
+
+const API = 'http://localhost:8765';
+
+const STATUS_COLOR = {
+  stub:                  '#64748b',
+  needs_match:           '#f59e0b',
+  source_backed:         '#3b82f6',
+  human_observed:        '#8b5cf6',
+  needs_review:          '#f97316',
+  needs_visit:           '#ec4899',
+  approved_for_inclusion:'#22c55e',
+  rejected:              '#ef4444',
+  published:             '#fbbf24',
+};
+const STATUS_LABEL = {
+  stub:                  'Stub',
+  needs_match:           'Needs Match',
+  source_backed:         'Source Backed',
+  human_observed:        'Human Observed',
+  needs_review:          'Needs Review',
+  needs_visit:           'Needs Visit',
+  approved_for_inclusion:'Approved',
+  rejected:              'Rejected',
+  published:             'Published',
+};
+
+let candMarkers   = [];   // L.circleMarker instances for candidate mode
+let activeCand    = null; // currently selected candidate object
+let candMode      = false;
+let candFilter    = { status: '', search: '' };
+
+// ── Toolbar wiring ──────────────────────────────────────────────────────
+function showCandToolbar() {
+  document.getElementById('cand-toolbar').style.display = 'flex';
+  document.getElementById('cand-legend').style.display  = 'block';
+  document.getElementById('venue-legend').style.display = 'none';
+  document.getElementById('map-view').classList.add('cand-mode');
+  candMode = true;
+  loadCandidates();
+  loadAlertBadge();
+}
+function hideCandToolbar() {
+  document.getElementById('cand-toolbar').style.display  = 'none';
+  document.getElementById('cand-legend').style.display   = 'none';
+  document.getElementById('map-view').classList.remove('cand-mode');
+  candMode = false;
+  closeCandPanels();
+}
+
+function closeCandPanels() {
+  document.getElementById('review-panel').classList.remove('open');
+  document.getElementById('alert-panel').classList.remove('open');
+  activeCand = null;
+}
+
+// ── Fetch + render candidate pins ───────────────────────────────────────
+async function loadCandidates() {
+  if (!lMap) return;
+  candMarkers.forEach(m => { try { lMap.removeLayer(m); } catch(e){} });
+  candMarkers = [];
+
+  const params = new URLSearchParams({ limit: 2000 });
+  if (candFilter.status) params.set('status', candFilter.status);
+  if (candFilter.search) params.set('search', candFilter.search);
+
+  let data;
+  try {
+    const r = await fetch(`${API}/candidates?${params}`);
+    data = await r.json();
+  } catch(e) {
+    document.getElementById('cand-stats').textContent = 'API offline';
+    return;
+  }
+
+  document.getElementById('cand-stats').textContent =
+    `${data.total} candidates · ${data.items.filter(c=>c.lat).length} mapped`;
+
+  for (const c of data.items) {
+    if (!c.lat || !c.lng) continue;
+    const col = STATUS_COLOR[c.candidate_status] || '#64748b';
+    const m   = L.circleMarker([c.lat, c.lng], {
+      radius: 7, fillColor: col, color: '#0f172a', weight: 1.5, fillOpacity: 0.90
+    }).addTo(lMap);
+    m.on('click', () => openReviewPanel(c));
+    m.bindTooltip(c.canonical_name, { direction: 'top', offset: [0,-6] });
+    candMarkers.push(m);
+  }
+}
+
+// ── Review panel ────────────────────────────────────────────────────────
+async function openReviewPanel(cand) {
+  activeCand = cand;
+  const panel = document.getElementById('review-panel');
+  panel.classList.add('open');
+  document.getElementById('review-body').innerHTML = '<p style="color:#475569">Loading…</p>';
+  document.getElementById('review-actions-wrap').innerHTML = '';
+  document.getElementById('review-history').innerHTML = '';
+
+  // Fetch full detail with history
+  let full;
+  try {
+    const r = await fetch(`${API}/candidates/${cand.candidate_id}`);
+    full = await r.json();
+  } catch(e) { full = cand; full.decisions = []; }
+
+  const col  = STATUS_COLOR[full.candidate_status] || '#64748b';
+  const tags = (Array.isArray(full.tags) ? full.tags : []).slice(0,5);
+  const d    = VENUE_DETAILS[full.canonical_name] || {};
+  const img  = full.image_url || d.img || '';
+
+  document.getElementById('review-panel-title').textContent = full.canonical_name;
+
+  document.getElementById('review-body').innerHTML = `
+    ${img ? `<img src="${img}" onerror="this.style.display='none'">` : ''}
+    <div class="review-field">
+      <label>Status</label>
+      <span class="status-chip" style="background:${col}22;color:${col}">${STATUS_LABEL[full.candidate_status] || full.candidate_status}</span>
+    </div>
+    ${full.tier ? `<div class="review-field"><label>Tier</label><p>${full.tier}</p></div>` : ''}
+    ${full.category ? `<div class="review-field"><label>Category</label><p>${full.category}${full.food_type ? ' · '+full.food_type : ''}${full.dining_type ? ' · '+full.dining_type : ''}</p></div>` : ''}
+    ${full.address ? `<div class="review-field"><label>Address</label><p>${full.address}</p></div>` : ''}
+    ${full.description ? `<div class="review-field"><label>Description</label><p style="line-height:1.5">${full.description}</p></div>` : ''}
+    ${tags.length ? `<div class="review-field"><label>Tags</label><div style="display:flex;flex-wrap:wrap;gap:4px">${tags.map(t=>`<span style="background:#1e293b;color:#64748b;font-size:10px;padding:2px 6px;border-radius:3px">${t}</span>`).join('')}</div></div>` : ''}
+    <div class="review-field">
+      <label>Observations</label>
+      <p>${full.verified_observation_count || 0} verified</p>
+    </div>
+    <div class="review-field"><label>Decision History</label></div>
+    <div id="review-history">
+      ${(full.decisions||[]).map(dec => `
+        <div class="history-item">
+          <strong style="color:#94a3b8">${STATUS_LABEL[dec.new_status]||dec.new_status}</strong>
+          <span style="color:#334155"> · ${dec.decider}</span><br>
+          ${dec.reason}
+        </div>`).join('') || '<p style="color:#334155;font-size:11px">No decisions yet</p>'}
+    </div>`;
+
+  // Action buttons — context-sensitive
+  const actions = document.getElementById('review-actions-wrap');
+  const canAct  = !['published','rejected'].includes(full.candidate_status);
+  actions.innerHTML = `
+    <div class="review-reason-wrap">
+      <textarea id="review-reason" placeholder="Reason (required for decisions)…"></textarea>
+    </div>
+    <div class="review-actions">
+      ${canAct ? `
+        <button class="btn-approve" onclick="doDecision('approved_for_inclusion','inclusion')">✓ Approve for Inclusion</button>
+        <button class="btn-visit"   onclick="doDecision('needs_visit','needs_visit')">🔍 Needs Visit</button>
+        <button class="btn-review"  onclick="doDecision('needs_review','status_change')">⏸ Needs Review</button>
+        <button class="btn-reject"  onclick="doDecision('rejected','rejection')">✕ Reject</button>
+      ` : `<p style="color:#475569;font-size:11px;text-align:center">This candidate is <strong>${full.candidate_status}</strong> — no further actions.</p>`}
+      <button class="btn-review" style="background:#1e293b;color:#818cf8" onclick="openObsModal()">+ Log Observation</button>
+    </div>`;
+}
+
+async function doDecision(newStatus, decisionType) {
+  if (!activeCand) return;
+  const reason = document.getElementById('review-reason').value.trim();
+  if (!reason) { alert('Please enter a reason before making a decision.'); return; }
+
+  try {
+    const r = await fetch(`${API}/candidates/${activeCand.candidate_id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_status: newStatus, reason, decision_type: decisionType, decider: 'founder' }),
+    });
+    const updated = await r.json();
+    activeCand = updated;
+    loadCandidates();        // refresh map pins
+    openReviewPanel(updated); // refresh panel
+  } catch(e) { alert('API error: ' + e.message); }
+}
+
+// ── Verified review / observation modal ─────────────────────────────────
+function openObsModal() {
+  const modal = document.getElementById('obs-modal-bg');
+  document.getElementById('obs-place-name').value = activeCand?.canonical_name || '';
+  document.getElementById('obs-candidate-id').value = activeCand?.candidate_id || '';
+  modal.classList.add('open');
+}
+function closeObsModal() {
+  document.getElementById('obs-modal-bg').classList.remove('open');
+}
+
+async function submitObservation() {
+  const body = {
+    place_name:            document.getElementById('obs-place-name').value.trim(),
+    candidate_id:          document.getElementById('obs-candidate-id').value || null,
+    reviewer:              document.getElementById('obs-reviewer').value.trim() || 'founder',
+    date_visited:          document.getElementById('obs-date').value || null,
+    visit_type:            document.getElementById('obs-visit-type').value,
+    inclusion_signal:      document.getElementById('obs-inclusion').value,
+    classification_signal: document.getElementById('obs-class').value,
+    why_include_or_exclude: document.getElementById('obs-why').value.trim(),
+    price_signal:          document.getElementById('obs-price').value,
+    vibe_signal:           document.getElementById('obs-vibe').value.trim(),
+    freeform_notes:        document.getElementById('obs-notes').value.trim(),
+    city: 'Prague', country: 'Czech Republic',
+  };
+  if (!body.place_name) { alert('Place name is required.'); return; }
+
+  try {
+    await fetch(`${API}/observations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    closeObsModal();
+    if (activeCand) openReviewPanel(activeCand);
+    loadCandidates();
+  } catch(e) { alert('API error: ' + e.message); }
+}
+
+// ── Alert inbox ──────────────────────────────────────────────────────────
+async function loadAlertBadge() {
+  try {
+    const r = await fetch(`${API}/alerts`);
+    const alerts = await r.json();
+    const badge = document.getElementById('alert-badge');
+    if (alerts.length > 0) { badge.textContent = alerts.length; badge.style.display = 'block'; }
+    else { badge.style.display = 'none'; }
+  } catch(e) {}
+}
+
+async function toggleAlerts() {
+  const panel = document.getElementById('alert-panel');
+  if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
+
+  panel.innerHTML = `<header><h3>Alert Inbox</h3><button onclick="document.getElementById('alert-panel').classList.remove('open')" style="background:none;border:none;color:#475569;font-size:18px;cursor:pointer">×</button></header>
+    <div style="padding:10px 16px;color:#475569;font-size:11px">Loading…</div>`;
+  panel.classList.add('open');
+
+  try {
+    const r = await fetch(`${API}/alerts`);
+    const alerts = await r.json();
+    const body   = alerts.length === 0
+      ? '<div style="padding:20px 16px;color:#334155;font-size:12px">No open alerts.</div>'
+      : alerts.map(a => `
+        <div class="alert-item">
+          <span class="sev-${a.severity}">●</span>
+          <div style="flex:1">
+            <strong style="color:#94a3b8">${a.worker_name}</strong>
+            <span style="color:#334155"> · ${a.status}</span>
+            <div>${a.error_summary || 'No summary'}</div>
+            <div style="color:#334155;font-size:10px">${a.created_at?.slice(0,16).replace('T',' ')}</div>
+          </div>
+          <button class="alert-dismiss" onclick="resolveAlert('${a.job_run_id}', this)">Resolve</button>
+        </div>`).join('');
+
+    panel.innerHTML = `<header><h3>Alert Inbox (${alerts.length})</h3>
+      <button onclick="document.getElementById('alert-panel').classList.remove('open')" style="background:none;border:none;color:#475569;font-size:18px;cursor:pointer">×</button></header>
+      ${body}`;
+  } catch(e) {
+    panel.innerHTML += '<div style="padding:12px 16px;color:#ef4444">API unreachable</div>';
+  }
+}
+
+async function resolveAlert(id, btn) {
+  try {
+    await fetch(`${API}/job_runs/${id}/resolve`, { method: 'PATCH' });
+    btn.closest('.alert-item').style.opacity = '0.3';
+    loadAlertBadge();
+  } catch(e) {}
+}
+
+// ── Filter wiring ────────────────────────────────────────────────────────
+document.getElementById('cand-status-filter').addEventListener('change', e => {
+  candFilter.status = e.target.value;
+  if (candMode) loadCandidates();
+});
+document.getElementById('cand-search').addEventListener('input', e => {
+  candFilter.search = e.target.value;
+  if (candMode) loadCandidates();
+});
+document.getElementById('btn-alerts').addEventListener('click', toggleAlerts);
+document.getElementById('btn-close-review').addEventListener('click', () => {
+  document.getElementById('review-panel').classList.remove('open');
+});
+document.getElementById('btn-add-candidate').addEventListener('click', () => {
+  activeCand = null;
+  document.getElementById('obs-place-name').value = '';
+  document.getElementById('obs-candidate-id').value = '';
+  openObsModal();
+});
+
+// Hook into showMapView to show candidate toolbar when Prague is selected
+const _origShowMapView = showMapView;
+showMapView = async function(country, focusCity) {
+  await _origShowMapView(country, focusCity);
+  if (focusCity && focusCity.hasVenues) showCandToolbar();
+};
+const _origHideMapView = hideMapView;
+hideMapView = function() {
+  hideCandToolbar();
+  _origHideMapView();
+};
+
+</script>
+
+<!-- ── Candidate toolbar ────────────────────────────────────────────── -->
+<div id="cand-toolbar">
+  <label>Status</label>
+  <select id="cand-status-filter">
+    <option value="">All</option>
+    <option value="stub">Stub</option>
+    <option value="needs_match">Needs Match</option>
+    <option value="source_backed">Source Backed</option>
+    <option value="human_observed">Human Observed</option>
+    <option value="needs_review">Needs Review</option>
+    <option value="needs_visit">Needs Visit</option>
+    <option value="approved_for_inclusion">Approved</option>
+    <option value="rejected">Rejected</option>
+    <option value="published">Published</option>
+  </select>
+  <input id="cand-search" type="text" placeholder="Search…" style="width:140px">
+  <button id="btn-alerts">Alerts <span id="alert-badge"></span></button>
+  <button id="btn-add-candidate">+ Add Candidate</button>
+  <span id="cand-stats"></span>
+</div>
+
+<!-- ── Review panel ─────────────────────────────────────────────────── -->
+<div id="review-panel">
+  <header>
+    <h3 id="review-panel-title">Candidate</h3>
+    <button id="btn-close-review">×</button>
+  </header>
+  <div id="review-body"></div>
+  <div id="review-actions-wrap"></div>
+</div>
+
+<!-- ── Verified review / observation modal ──────────────────────────── -->
+<div id="obs-modal-bg">
+  <div id="obs-modal">
+    <h3>Log Verified Observation</h3>
+    <input type="hidden" id="obs-candidate-id">
+    <div class="obs-field">
+      <label>Place Name *</label>
+      <input id="obs-place-name" type="text" placeholder="Exact name of the place">
+    </div>
+    <div class="obs-row">
+      <div class="obs-field">
+        <label>Reviewer</label>
+        <input id="obs-reviewer" type="text" placeholder="Your name">
+      </div>
+      <div class="obs-field">
+        <label>Date Visited</label>
+        <input id="obs-date" type="date">
+      </div>
+    </div>
+    <div class="obs-row">
+      <div class="obs-field">
+        <label>Visit Type</label>
+        <select id="obs-visit-type">
+          <option value="first_hand">First-hand</option>
+          <option value="trusted_expert">Trusted Expert</option>
+          <option value="scout">Scout</option>
+          <option value="founder">Founder</option>
+          <option value="soft_verification">Soft Verification</option>
+        </select>
+      </div>
+      <div class="obs-field">
+        <label>Inclusion Signal</label>
+        <select id="obs-inclusion">
+          <option value="unsure">Unsure</option>
+          <option value="include">Include</option>
+          <option value="exclude">Exclude</option>
+        </select>
+      </div>
+    </div>
+    <div class="obs-row">
+      <div class="obs-field">
+        <label>Classification</label>
+        <select id="obs-class">
+          <option value="unknown">Unknown</option>
+          <option value="good">Good</option>
+          <option value="great">Great</option>
+          <option value="exceptional">Exceptional</option>
+        </select>
+      </div>
+      <div class="obs-field">
+        <label>Price Signal</label>
+        <select id="obs-price">
+          <option value="">—</option>
+          <option value="budget">Budget</option>
+          <option value="mid">Mid</option>
+          <option value="high">High</option>
+          <option value="luxury">Luxury</option>
+        </select>
+      </div>
+    </div>
+    <div class="obs-field">
+      <label>Why Include / Exclude</label>
+      <input id="obs-why" type="text" placeholder="One-line reason">
+    </div>
+    <div class="obs-field">
+      <label>Vibe</label>
+      <input id="obs-vibe" type="text" placeholder="e.g. neighbourhood gem, tourist trap, hidden local spot">
+    </div>
+    <div class="obs-field">
+      <label>Freeform Notes</label>
+      <textarea id="obs-notes" placeholder="Anything else worth capturing…"></textarea>
+    </div>
+    <footer>
+      <button class="btn-cancel" onclick="closeObsModal()">Cancel</button>
+      <button class="btn-submit" onclick="submitObservation()">Save Observation</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ── Alert inbox panel ─────────────────────────────────────────────── -->
+<div id="alert-panel"></div>
+
+<!-- ── Candidate status legend ──────────────────────────────────────── -->
+<div id="cand-legend">
+  <h4>Candidate Status</h4>
+  <div class="cl"><div class="cd" style="background:#fbbf24"></div>Published</div>
+  <div class="cl"><div class="cd" style="background:#22c55e"></div>Approved</div>
+  <div class="cl"><div class="cd" style="background:#f97316"></div>Needs Review</div>
+  <div class="cl"><div class="cd" style="background:#ec4899"></div>Needs Visit</div>
+  <div class="cl"><div class="cd" style="background:#8b5cf6"></div>Human Observed</div>
+  <div class="cl"><div class="cd" style="background:#3b82f6"></div>Source Backed</div>
+  <div class="cl"><div class="cd" style="background:#f59e0b"></div>Needs Match</div>
+  <div class="cl"><div class="cd" style="background:#64748b"></div>Stub</div>
+  <div class="cl"><div class="cd" style="background:#ef4444"></div>Rejected</div>
+</div>
+
+</body>
+</html>
