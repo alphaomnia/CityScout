@@ -2002,7 +2002,7 @@ async function openReviewPanel(cand) {
   panel.classList.add('open');
   document.getElementById('review-body').innerHTML = '<p style="color:#475569">Loading…</p>';
   document.getElementById('review-actions-wrap').innerHTML = '';
-  document.getElementById('review-history').innerHTML = '';
+  // review-history lives inside review-body — cleared above, no separate reset needed
 
   // Fetch full detail with history
   let full;
