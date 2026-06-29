@@ -165,7 +165,7 @@ def list_candidates(
     city:    Optional[str] = None,
     status:  Optional[str] = None,
     country: Optional[str] = None,
-    limit:   int = Query(500, le=2000),
+    limit:   int = Query(500, le=10000),
     offset:  int = 0,
     search:  Optional[str] = None,
 ):

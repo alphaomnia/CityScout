@@ -2723,7 +2723,7 @@ async function loadVenuesTab() {
 
   let data;
   try {
-    const r = await fetch(`${API}/candidates?limit=5000`);
+    const r = await fetch(`${API}/candidates?limit=2000`);
     data = await r.json();
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="7" style="color:#ef4444;padding:24px">API offline: ${e.message}</td></tr>`;
