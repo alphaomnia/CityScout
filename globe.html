@@ -2581,7 +2581,7 @@ async function main() {
     cities.forEach(c => {
       const o = document.createElement('option');
       o.value = JSON.stringify(c);
-      o.textContent = c.name + (c.hasVenues ? '  ·  venues' : '');
+      o.textContent = c.name;
       cityEl.appendChild(o);
     });
     cityEl.disabled = cities.length === 0;
