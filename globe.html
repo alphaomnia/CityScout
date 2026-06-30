@@ -2224,10 +2224,8 @@ async function showMapView(country, focusCity) {
     lMapLayers.push(marker);
   }
 
-  // Venue markers — geocoded to real OSM positions, cached in localStorage
-  if (CITY_DATABASE[country]?.some(c => c.hasVenues)) {
-    geocodeAndAddVenues(country);
-  }
+  // Venue/candidate markers are handled by loadCandidates() via showCandToolbar()
+  // which fires immediately after this function returns. No separate call needed.
 
   // If a focus city was passed, also fly to it at street level
   if (focusCity) {
@@ -2489,9 +2487,7 @@ async function main() {
       cityListEl.appendChild(badge);
     });
 
-    badgeEl.textContent = city.hasVenues
-      ? `${VENUES.length} venues in ${city.name}`
-      : `No venues yet for ${city.name}`;
+    badgeEl.textContent = city.hasVenues ? `Loading venues…` : `No venues yet for ${city.name}`;
 
     showMapView(country, city);
   });
@@ -3026,7 +3022,7 @@ async function loadCandidates() {
   const params = new URLSearchParams({ limit: 2000 });
   if (candFilter.status) params.set('status', candFilter.status);
   if (candFilter.search) params.set('search', candFilter.search);
-  if (activeCity) params.set('city', activeCity.name);
+  if (activeCountry) params.set('country', activeCountry); // show all venues for the whole country
 
   let data;
   try {
@@ -3037,19 +3033,30 @@ async function loadCandidates() {
     return;
   }
 
+  const mappedCount = data.items.filter(c => c.lat && c.lng).length;
   document.getElementById('cand-stats').textContent =
-    `${data.total} candidates · ${data.items.filter(c=>c.lat).length} mapped`;
+    `${data.total} venues · ${mappedCount} on map` + (activeCountry ? ` · ${activeCountry}` : '');
+  // Update the header badge with the live count
+  const _badge = document.getElementById('city-badge');
+  if (_badge && activeCountry) {
+    _badge.textContent = data.total > 0
+      ? `${data.total} venues in ${activeCountry}`
+      : `No venues yet for ${activeCountry}`;
+  }
 
   candMap.clear();
   for (const c of data.items) {
-    candMap.set(c.canonical_name, c); // index for venue-pin click lookup
+    candMap.set(c.canonical_name, c);
     if (!c.lat || !c.lng) continue;
     const col = STATUS_COLOR[c.candidate_status] || '#64748b';
     const m   = L.circleMarker([c.lat, c.lng], {
       radius: 7, fillColor: col, color: '#0f172a', weight: 1.5, fillOpacity: 0.90
     }).addTo(lMap);
     m.on('click', () => openReviewPanel(c));
-    m.bindTooltip(c.canonical_name, { direction: 'top', offset: [0,-6] });
+    m.bindTooltip(
+      `<b>${c.canonical_name}</b><br><span style="color:${col}">${STATUS_LABEL[c.candidate_status] || c.candidate_status}</span>${c.city ? `<br>${c.city}` : ''}`,
+      { direction: 'top', offset: [0,-6] }
+    );
     candMarkers.push(m);
   }
 }
