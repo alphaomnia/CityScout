@@ -3,7 +3,7 @@ CityScout · Green 1 API
 FastAPI backend — all six objects, candidate lifecycle, instrumentation.
 Run: uvicorn main:app --reload --port 8765
 """
-import csv, io, json, sqlite3, uuid
+import csv, io, json, shutil, sqlite3, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -13,7 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-DB_PATH = Path(__file__).parent / "cityscout.db"
+DB_PATH    = Path(__file__).parent / "cityscout.db"
+PHOTOS_DIR = Path(__file__).parent.parent / "photos"
+PHOTOS_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(title="CityScout Green 1", version="1.0.0")
 app.add_middleware(
@@ -24,6 +26,17 @@ app.add_middleware(
 )
 
 # ── DB helpers ──────────────────────────────────────────────────────────────
+
+def _run_migrations():
+    """Apply any schema additions that may not exist in older DBs."""
+    db = sqlite3.connect(DB_PATH, timeout=15)
+    existing = {r[1] for r in db.execute("PRAGMA table_info(candidate)").fetchall()}
+    if "photos" not in existing:
+        db.execute("ALTER TABLE candidate ADD COLUMN photos TEXT DEFAULT '[]'")
+        db.commit()
+    db.close()
+
+_run_migrations()
 
 def get_db():
     db = sqlite3.connect(DB_PATH, timeout=15)
@@ -702,3 +715,62 @@ def list_decisions(candidate_id: Optional[str] = None, limit: int = 100):
     ).fetchall()
     db.close()
     return [row_to_dict(r) for r in rows]
+
+# ── Photo upload / delete ────────────────────────────────────────────────────
+
+_ALLOWED_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"}
+
+@app.post("/candidates/{candidate_id}/photos", status_code=201)
+async def upload_candidate_photo(candidate_id: str, file: UploadFile = File(...)):
+    db = get_db()
+    row = db.execute("SELECT photos FROM candidate WHERE candidate_id=?", (candidate_id,)).fetchone()
+    if not row:
+        db.close()
+        raise HTTPException(404, "Candidate not found")
+
+    ext = Path(file.filename or "photo.jpg").suffix.lower()
+    if ext not in _ALLOWED_EXTS:
+        db.close()
+        raise HTTPException(400, f"File type '{ext}' not allowed")
+
+    dest_dir = PHOTOS_DIR / candidate_id
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    filename  = f"{uuid.uuid4()}{ext}"
+    dest_path = dest_dir / filename
+
+    with open(dest_path, "wb") as fh:
+        shutil.copyfileobj(file.file, fh)
+
+    photo_path = f"/photos/{candidate_id}/{filename}"
+    photos = json.loads(row["photos"] or "[]")
+    photos.append(photo_path)
+
+    db.execute("UPDATE candidate SET photos=?, updated_at=? WHERE candidate_id=?",
+               (json.dumps(photos), now(), candidate_id))
+    db.commit()
+    db.close()
+    return {"path": photo_path, "photos": photos}
+
+
+@app.delete("/candidates/{candidate_id}/photos")
+def delete_candidate_photo(candidate_id: str, path: str):
+    db = get_db()
+    row = db.execute("SELECT photos FROM candidate WHERE candidate_id=?", (candidate_id,)).fetchone()
+    if not row:
+        db.close()
+        raise HTTPException(404, "Candidate not found")
+
+    photos = [p for p in json.loads(row["photos"] or "[]") if p != path]
+    db.execute("UPDATE candidate SET photos=?, updated_at=? WHERE candidate_id=?",
+               (json.dumps(photos), now(), candidate_id))
+    db.commit()
+    db.close()
+
+    if path.startswith("/photos/"):
+        local = PHOTOS_DIR.parent / path.lstrip("/")
+        try:
+            local.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    return {"photos": photos}
