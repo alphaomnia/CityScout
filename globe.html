@@ -389,9 +389,12 @@
   .city-pin-badge {
     font-size: 10px; color: #64748b; background: rgba(30,41,59,0.8);
     padding: 3px 9px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);
-    letter-spacing: 0.5px;
+    letter-spacing: 0.5px; cursor: pointer; transition: background .15s, color .15s;
+    user-select: none;
   }
+  .city-pin-badge:hover { background: rgba(30,41,59,1); color: #94a3b8; }
   .city-pin-badge.has-venues { color: #fbbf24; border-color: rgba(251,191,36,0.25); }
+  .city-pin-badge.has-venues:hover { background: rgba(251,191,36,0.1); color: #fde68a; }
 
   #map-view {
     display: none; position: fixed; inset: 52px 0 0 0; z-index: 5;
@@ -459,6 +462,47 @@
     color: #fff; border-radius: 9px; font-size: 9px; font-weight: 700;
     padding: 1px 5px; display: none;
   }
+
+  /* ── Satellite stat popup ──────────────────────────────────────── */
+  #sat-stat-popup {
+    position: fixed; z-index: 200; pointer-events: all;
+    background: rgba(6,11,24,0.97); border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 10px; padding: 16px 18px 14px; min-width: 230px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.7); display: none;
+    backdrop-filter: blur(10px);
+  }
+  #sat-stat-popup.visible { display: block; }
+  #sat-stat-popup-close {
+    position: absolute; top: 8px; right: 10px; background: none; border: none;
+    color: #334155; cursor: pointer; font-size: 18px; line-height: 1;
+    padding: 2px 5px; transition: color .15s;
+  }
+  #sat-stat-popup-close:hover { color: #94a3b8; }
+  #sat-stat-popup-name {
+    font-size: 15px; font-weight: 700; color: #e2e8f0;
+    margin-bottom: 2px; padding-right: 22px;
+  }
+  #sat-stat-popup-country {
+    font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: #334155; margin-bottom: 12px;
+  }
+  .ssp-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; color: #475569; padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .ssp-row:last-of-type { border-bottom: none; }
+  .ssp-row span:last-child { font-weight: 600; color: #94a3b8; font-size: 13px; }
+  .ssp-total { margin-bottom: 6px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.07) !important; }
+  .ssp-total span:first-child { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: .8px; }
+  .ssp-total span:last-child { color: #fbbf24 !important; font-size: 18px !important; font-weight: 700 !important; }
+  #sat-stat-popup-goto {
+    margin-top: 12px; width: 100%; padding: 7px 0;
+    background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.22);
+    border-radius: 5px; color: #818cf8; font-size: 12px; font-weight: 600;
+    cursor: pointer; letter-spacing: 0.4px; transition: all .15s;
+  }
+  #sat-stat-popup-goto:hover { background: rgba(99,102,241,0.24); color: #a5b4fc; }
 
   /* ── Candidate-mode map area shifts down when toolbar is visible ─ */
   #map-view.cand-mode { top: 140px; }
@@ -1218,6 +1262,15 @@
   </div><!-- /manual-layout -->
 </div>
 
+<!-- ── Satellite / city stat popup ───────────────────────────────────────── -->
+<div id="sat-stat-popup">
+  <button id="sat-stat-popup-close">×</button>
+  <div id="sat-stat-popup-name"></div>
+  <div id="sat-stat-popup-country"></div>
+  <div id="sat-stat-popup-body"></div>
+  <button id="sat-stat-popup-goto" style="display:none">Open City Map →</button>
+</div>
+
 <div id="loading">
   <h2>Loading Earth</h2>
   <div id="progress"><div id="progress-fill"></div></div>
@@ -1969,6 +2022,119 @@ async function initMaltaGlobeData() {
   }
 }
 
+// ── Satellite stat popup ──────────────────────────────────────────────────
+function _satHitAt(mx, my) {
+  for (const h of _satHits) {
+    const dx = mx - h.x, dy = my - h.y;
+    if (Math.sqrt(dx*dx + dy*dy) <= h.r) return h;
+    // Also hit on the label pill
+    if (mx >= h.lx && mx <= h.lx + h.lw && my >= h.ly && my <= h.ly + h.lh) return h;
+  }
+  return null;
+}
+
+let _satPopupCity = null;
+
+function showSatStatPopup(cityName, mx, my) {
+  _satPopupCity = cityName;
+  const popup   = document.getElementById('sat-stat-popup');
+  const nameEl  = document.getElementById('sat-stat-popup-name');
+  const cntryEl = document.getElementById('sat-stat-popup-country');
+  const bodyEl  = document.getElementById('sat-stat-popup-body');
+  const gotoEl  = document.getElementById('sat-stat-popup-goto');
+
+  // Resolve country from CITY_DATABASE
+  let countryName = '';
+  for (const [country, cities] of Object.entries(CITY_DATABASE)) {
+    if (cities.some(c => c.name === cityName)) { countryName = country; break; }
+  }
+
+  nameEl.textContent  = cityName;
+  cntryEl.textContent = countryName || 'Unknown country';
+  bodyEl.innerHTML    = '<div style="font-size:12px;color:#334155;text-align:center;padding:10px 0">Loading…</div>';
+  gotoEl.style.display = 'none';
+
+  // Position: right of click, staying on-screen
+  popup.style.display = 'block'; // measure dimensions
+  const pw = popup.offsetWidth || 240, ph = popup.offsetHeight || 220;
+  popup.style.display = '';
+  const W = window.innerWidth, H = window.innerHeight;
+  let left = mx + 18, top = my - 30;
+  if (left + pw > W - 12) left = mx - pw - 18;
+  if (top + ph > H - 12) top  = H - ph - 12;
+  if (top < 52) top = 52;
+  popup.style.left = left + 'px';
+  popup.style.top  = top  + 'px';
+  popup.classList.add('visible');
+
+  // Fetch live stats
+  const qs = countryName
+    ? `city=${encodeURIComponent(cityName)}&country=${encodeURIComponent(countryName)}&limit=500`
+    : `city=${encodeURIComponent(cityName)}&limit=500`;
+
+  fetch(`${API}/candidates?${qs}`)
+    .then(r => r.json())
+    .then(d => {
+      if (_satPopupCity !== cityName) return;
+      const items = d.items || [];
+      const total = d.total || items.length;
+
+      if (total === 0) {
+        bodyEl.innerHTML = '<div style="font-size:12px;color:#334155;text-align:center;padding:14px 0">No venues registered yet.</div>';
+        return;
+      }
+
+      // Tally by status
+      const tally = {};
+      for (const it of items) tally[it.status] = (tally[it.status] || 0) + 1;
+
+      const LABEL = {
+        published:'Published', approved_for_inclusion:'Approved',
+        stub:'Stub', needs_review:'Needs Review', needs_visit:'Needs Visit',
+        rejected:'Rejected', source_backed:'Source Backed',
+        human_observed:'Human Observed', needs_match:'Needs Match',
+      };
+
+      let html = `<div class="ssp-row ssp-total"><span>Total venues</span><span>${total}</span></div>`;
+      const sorted = Object.entries(tally).sort((a,b) => b[1]-a[1]);
+      for (const [st, n] of sorted) {
+        html += `<div class="ssp-row"><span>${LABEL[st] || st}</span><span>${n}</span></div>`;
+      }
+      bodyEl.innerHTML = html;
+
+      // Show "Open city map" button if the city is navigable
+      if (countryName && CITY_DATABASE[countryName]) {
+        const cityObj = CITY_DATABASE[countryName].find(c => c.name === cityName);
+        if (cityObj) {
+          gotoEl.style.display = 'block';
+          gotoEl.onclick = () => { closeSatStatPopup(); _gotoCity(countryName, cityObj); };
+        }
+      }
+    })
+    .catch(() => {
+      if (_satPopupCity !== cityName) return;
+      bodyEl.innerHTML = '<div style="font-size:12px;color:#ef4444;text-align:center;padding:10px 0">Could not reach API</div>';
+    });
+}
+
+function closeSatStatPopup() {
+  _satPopupCity = null;
+  document.getElementById('sat-stat-popup').classList.remove('visible');
+}
+
+function _gotoCity(country, cityObj) {
+  const cEl = document.getElementById('country-select');
+  const xEl = document.getElementById('city-select');
+  cEl.value = country;
+  cEl.dispatchEvent(new Event('change'));
+  setTimeout(() => {
+    for (const opt of xEl.options) {
+      try { const c = JSON.parse(opt.value); if (c.name === cityObj.name) { xEl.value = opt.value; xEl.dispatchEvent(new Event('change')); break; } }
+      catch(e) {}
+    }
+  }, 60);
+}
+
 // ── Leaflet flat map view ──────────────────────────────────────────────────
 function initLeafletIfNeeded() {
   if (lMap) return;
@@ -2148,6 +2314,10 @@ async function main() {
   let mode = 'globe';
   let selectedCountry = null;
   let countryViewTime = 0;
+
+  // Satellite click-detection: populated each draw frame
+  let _satHits = [];
+  let _clickDownX = 0, _clickDownY = 0;
   let countryBaseY = 0, countryBaseX = 0, countryBaseZ = 1.0;
 
   // Cached gradients — rebuilt only on resize / zoom change
@@ -2182,20 +2352,33 @@ async function main() {
   let mouseX = -9999, mouseY = -9999;
 
   canvas.addEventListener('mousedown', e => {
+    _clickDownX = e.clientX; _clickDownY = e.clientY;
     isDragging = true; lastMX = e.clientX; lastMY = e.clientY;
     canvas.style.cursor = 'grabbing';
     navY = null; // cancel any active navigation animation
   });
   window.addEventListener('mousemove', e => {
     mouseX = e.clientX; mouseY = e.clientY;
-    if (!isDragging) return;
-    rotY -= (e.clientX - lastMX) * DRAG_SENS;
-    rotX -= (e.clientY - lastMY) * DRAG_SENS;
-    rotX  = Math.max(-ROT_X_LIMIT, Math.min(ROT_X_LIMIT, rotX));
-    lastMX = e.clientX; lastMY = e.clientY;
+    if (!isDragging) {
+      // Pointer cursor when hovering over a satellite
+      const over = _satHitAt(e.clientX, e.clientY);
+      canvas.style.cursor = over ? 'pointer' : 'grab';
+    } else {
+      rotY -= (e.clientX - lastMX) * DRAG_SENS;
+      rotX -= (e.clientY - lastMY) * DRAG_SENS;
+      rotX  = Math.max(-ROT_X_LIMIT, Math.min(ROT_X_LIMIT, rotX));
+      lastMX = e.clientX; lastMY = e.clientY;
+    }
   });
-  window.addEventListener('mouseup', () => {
+  window.addEventListener('mouseup', e => {
     isDragging = false; canvas.style.cursor = 'grab';
+    // Treat as click only if the pointer barely moved
+    const dx = e.clientX - _clickDownX, dy = e.clientY - _clickDownY;
+    if (Math.sqrt(dx*dx + dy*dy) < 6) {
+      const hit = _satHitAt(e.clientX, e.clientY);
+      if (hit) showSatStatPopup(hit.name, e.clientX, e.clientY);
+      else      closeSatStatPopup();
+    }
   });
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
@@ -2204,6 +2387,8 @@ async function main() {
     zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * f));
   }, { passive: false });
   canvas.addEventListener('dblclick', () => { rotX = 0; zoom = 1.0; });
+  document.getElementById('sat-stat-popup-close').addEventListener('click', closeSatStatPopup);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSatStatPopup(); });
 
   let lastTX = 0, lastTY = 0;
   canvas.addEventListener('touchstart', e => {
@@ -2291,13 +2476,16 @@ async function main() {
     document.getElementById('country-view-header').style.display = 'flex';
     document.getElementById('country-name-title').textContent = country;
 
-    // City badges in header
+    // City badges in header — clickable chips that navigate to the selected city
     const cityListEl = document.getElementById('country-city-list');
     cityListEl.innerHTML = '';
     (CITY_DATABASE[country] || []).forEach(c => {
       const badge = document.createElement('span');
       badge.className = 'city-pin-badge' + (c.hasVenues ? ' has-venues' : '');
       badge.textContent = c.name + (c.hasVenues ? ' ★' : '');
+      badge.title = c.hasVenues ? `Click to open ${c.name} map` : c.name;
+      badge.style.cursor = 'pointer';
+      badge.addEventListener('click', () => _gotoCity(country, c));
       cityListEl.appendChild(badge);
     });
 
@@ -2569,16 +2757,14 @@ async function main() {
       ctx.lineWidth   = 0.9;
       ctx.stroke();
 
+      _satHits = []; // reset each frame so clicks always reference latest positions
       for (let i = 0; i < CITIES.length; i++) {
         const city    = CITIES[i];
         const count   = CITY_VENUE_COUNTS[city.name] || 0;
-        // Size scales with sqrt(venueCount) so growth is perceptible but not explosive
-        const bodyR   = 3.5 + Math.sqrt(count) * 0.45;
-        const armLen  = 8   + Math.sqrt(count) * 0.35;
-        const wingW   = 4   + Math.sqrt(count) * 0.20;
+        // Ring size scales with sqrt(venueCount)
+        const pinR    = 4.5 + Math.sqrt(count) * 0.55;
         // Venue cities glow amber; empty cities stay indigo
         const [cr,cg,cb] = count > 0 ? [251,191,36] : [129,140,248];
-        const [pr,pg,pb] = count > 0 ? [234,148,10] : [99,102,241];
 
         const OR     = R * city.rf;
         const incRad = city.inc * Math.PI / 180;
@@ -2591,45 +2777,51 @@ async function main() {
         const alpha = 0.5 + Math.max(0, srz) * 0.5;
         const a1    = alpha.toFixed(2);
 
-        // Outer glow for venue cities
+        // Ambient glow halo (venue cities only)
         if (count > 0) {
-          const glowR = bodyR * 2.8;
-          const glow  = ctx.createRadialGradient(ssx, ssy, bodyR * 0.5, ssx, ssy, glowR);
-          glow.addColorStop(0, `rgba(${cr},${cg},${cb},${(alpha * 0.35).toFixed(2)})`);
+          const glowR = pinR * 3.2;
+          const glow  = ctx.createRadialGradient(ssx, ssy, pinR * 0.4, ssx, ssy, glowR);
+          glow.addColorStop(0, `rgba(${cr},${cg},${cb},${(alpha * 0.28).toFixed(2)})`);
           glow.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
           ctx.beginPath(); ctx.arc(ssx, ssy, glowR, 0, Math.PI * 2);
           ctx.fillStyle = glow; ctx.fill();
         }
 
-        // Body
-        ctx.beginPath(); ctx.arc(ssx, ssy, bodyR, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${cr},${cg},${cb},${a1})`; ctx.fill();
+        // Outer ring
+        ctx.beginPath(); ctx.arc(ssx, ssy, pinR, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(${cr},${cg},${cb},${a1})`;
+        ctx.lineWidth   = count > 0 ? 2 : 1.2;
+        ctx.stroke();
 
-        // Solar panel bar
-        ctx.strokeStyle = `rgba(${cr},${cg},${cb},${(alpha*0.7).toFixed(2)})`; ctx.lineWidth = 1.3;
-        ctx.beginPath(); ctx.moveTo(ssx-armLen,ssy); ctx.lineTo(ssx+armLen,ssy); ctx.stroke();
+        // Semi-transparent fill
+        ctx.beginPath(); ctx.arc(ssx, ssy, pinR, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${cr},${cg},${cb},${(alpha * 0.10).toFixed(2)})`;
+        ctx.fill();
 
-        // Panel wings
-        ctx.fillStyle = `rgba(${pr},${pg},${pb},${(alpha*0.5).toFixed(2)})`;
-        ctx.fillRect(ssx-armLen-wingW, ssy-2.5, wingW, 5);
-        ctx.fillRect(ssx+armLen,       ssy-2.5, wingW, 5);
+        // Inner dot
+        ctx.beginPath(); ctx.arc(ssx, ssy, pinR * 0.28, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${cr},${cg},${cb},${a1})`;
+        ctx.fill();
 
-        // Label pill
-        const labelX = ssx + armLen + wingW + 4;
+        // Label pill to the right
+        const labelX = ssx + pinR + 7;
         ctx.font = "bold 11px monospace"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-        const tw = ctx.measureText(city.name).width;
-        // Append venue count badge when city has data
-        const badge   = count > 0 ? `  ${count}` : '';
-        const fullTxt = city.name + badge;
+        const tw      = ctx.measureText(city.name).width;
+        const cntTxt  = count > 0 ? `  ${count}` : '';
+        const fullTxt = city.name + cntTxt;
         const ftw     = ctx.measureText(fullTxt).width;
-        ctx.fillStyle = `rgba(15,23,42,${(alpha*0.7).toFixed(2)})`;
-        ctx.beginPath(); ctx.roundRect(labelX-2, ssy-8, ftw+8, 16, 3); ctx.fill();
-        ctx.fillStyle = `rgba(${cr},${cg},${cb},${(alpha*0.95).toFixed(2)})`;
-        ctx.fillText(city.name, labelX+2, ssy);
+        ctx.fillStyle = `rgba(15,23,42,${(alpha * 0.72).toFixed(2)})`;
+        ctx.beginPath(); ctx.roundRect(labelX - 2, ssy - 8, ftw + 10, 16, 3); ctx.fill();
+        ctx.fillStyle = `rgba(${cr},${cg},${cb},${(alpha * 0.95).toFixed(2)})`;
+        ctx.fillText(city.name, labelX + 2, ssy);
         if (count > 0) {
-          ctx.fillStyle = `rgba(${cr},${cg},${cb},${(alpha*0.6).toFixed(2)})`;
-          ctx.fillText(badge, labelX+2+tw, ssy);
+          ctx.fillStyle = `rgba(${cr},${cg},${cb},${(alpha * 0.52).toFixed(2)})`;
+          ctx.fillText(cntTxt, labelX + 2 + tw, ssy);
         }
+
+        // Register hit target for click detection (ring + label area)
+        _satHits.push({ name: city.name, x: ssx, y: ssy, r: pinR + 6,
+                        lx: labelX - 2, ly: ssy - 8, lw: ftw + 10, lh: 16 });
       }
     }
 
