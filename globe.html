@@ -371,21 +371,34 @@
   #country-view-header {
     position: fixed; top: 44px; left: 0; right: 0; height: 52px;
     background: rgba(15,23,42,0.94); border-bottom: 1px solid rgba(255,255,255,0.08);
-    display: none; align-items: center; padding: 0 24px; gap: 16px;
-    z-index: 1100; backdrop-filter: blur(8px);
+    display: none; align-items: center; padding: 0 16px 0 24px; gap: 16px;
+    z-index: 1100; backdrop-filter: blur(8px); overflow: hidden;
   }
   #btn-back {
     background: rgba(30,41,59,0.95); border: 1px solid rgba(255,255,255,0.10);
     border-radius: 6px; color: #94a3b8; font-size: 11px; padding: 6px 14px;
     cursor: pointer; font-family: inherit; letter-spacing: 0.5px;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.15s, color 0.15s; flex-shrink: 0;
   }
   #btn-back:hover { background: rgba(51,65,85,0.95); color: #e2e8f0; }
   #country-name-title {
     font-size: 14px; font-weight: 600; color: #e2e8f0; letter-spacing: 1.5px;
-    text-transform: uppercase;
+    text-transform: uppercase; flex-shrink: 0;
   }
-  #country-city-list { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  /* Scrollable city chip row — horizontal scroll, no height change */
+  #country-city-list-wrap {
+    margin-left: auto; position: relative; overflow: hidden; flex: 1; min-width: 0;
+  }
+  #country-city-list-wrap::after {
+    content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 40px;
+    background: linear-gradient(to right, transparent, rgba(15,23,42,0.94));
+    pointer-events: none;
+  }
+  #country-city-list {
+    display: flex; gap: 8px; align-items: center;
+    overflow-x: auto; padding: 8px 40px 8px 0; scrollbar-width: none;
+  }
+  #country-city-list::-webkit-scrollbar { display: none; }
   .city-pin-badge {
     font-size: 10px; color: #64748b; background: rgba(30,41,59,0.8);
     padding: 3px 9px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);
@@ -1332,7 +1345,9 @@
 <div id="country-view-header">
   <button id="btn-back">&#8592; Globe</button>
   <span id="country-name-title"></span>
-  <div id="country-city-list"></div>
+  <div id="country-city-list-wrap">
+    <div id="country-city-list"></div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1688,14 +1703,79 @@ const CITY_VENUE_COUNTS = {
 
 // ── Navigable cities database ─────────────────────────────────────────────
 const CITY_DATABASE = {
-  "Austria":      [{ name:"Vienna",     lat:48.2082, lng:16.3738 }],
-  "Czech Republic":[{ name:"Prague",    lat:50.0755, lng:14.4378, hasVenues:true }],
-  "Denmark":      [{ name:"Copenhagen", lat:55.6761, lng:12.5683 }],
-  "France":       [{ name:"Paris",      lat:48.8566, lng: 2.3522 }],
-  "Germany":      [{ name:"Berlin",     lat:52.5200, lng:13.4050 }],
-  "Greece":       [{ name:"Athens",     lat:37.9838, lng:23.7275 }],
-  "Italy":        [{ name:"Rome",       lat:41.9028, lng:12.4964 },
-                   { name:"Milan",      lat:45.4642, lng: 9.1900 }],
+  "Austria": [
+    { name:"Vienna",      lat:48.2082, lng:16.3738, zoom:13, hasVenues:false },
+    { name:"Salzburg",    lat:47.8095, lng:13.0550, zoom:13 },
+    { name:"Graz",        lat:47.0707, lng:15.4395, zoom:13 },
+    { name:"Innsbruck",   lat:47.2692, lng:11.4041, zoom:13 },
+    { name:"Linz",        lat:48.3069, lng:14.2858, zoom:13 },
+    { name:"Klagenfurt",  lat:46.6228, lng:14.3052, zoom:13 },
+  ],
+  "Czech Republic": [
+    { name:"Prague",         lat:50.0755, lng:14.4378, zoom:13, hasVenues:true },
+    { name:"Brno",           lat:49.1951, lng:16.6068, zoom:13 },
+    { name:"Ostrava",        lat:49.8209, lng:18.2625, zoom:13 },
+    { name:"Plzeň",          lat:49.7384, lng:13.3736, zoom:13 },
+    { name:"Liberec",        lat:50.7663, lng:15.0543, zoom:13 },
+    { name:"Olomouc",        lat:49.5938, lng:17.2509, zoom:13 },
+    { name:"Hradec Králové", lat:50.2092, lng:15.8328, zoom:13 },
+    { name:"Český Krumlov",  lat:48.8127, lng:14.3175, zoom:14 },
+    { name:"Karlovy Vary",   lat:50.2311, lng:12.8716, zoom:13 },
+  ],
+  "Denmark": [
+    { name:"Copenhagen", lat:55.6761, lng:12.5683, zoom:13 },
+    { name:"Aarhus",     lat:56.1629, lng:10.2039, zoom:13 },
+    { name:"Odense",     lat:55.4038, lng:10.4024, zoom:13 },
+    { name:"Aalborg",    lat:57.0488, lng: 9.9217, zoom:13 },
+    { name:"Helsingør",  lat:56.0364, lng:12.6136, zoom:13 },
+    { name:"Roskilde",   lat:55.6415, lng:12.0803, zoom:13 },
+  ],
+  "France": [
+    { name:"Paris",      lat:48.8566, lng: 2.3522, zoom:13 },
+    { name:"Lyon",       lat:45.7640, lng: 4.8357, zoom:13 },
+    { name:"Marseille",  lat:43.2965, lng: 5.3698, zoom:13 },
+    { name:"Bordeaux",   lat:44.8378, lng:-0.5792, zoom:13 },
+    { name:"Nice",       lat:43.7102, lng: 7.2620, zoom:13 },
+    { name:"Strasbourg", lat:48.5734, lng: 7.7521, zoom:13 },
+    { name:"Toulouse",   lat:43.6047, lng: 1.4442, zoom:13 },
+    { name:"Nantes",     lat:47.2184, lng:-1.5536, zoom:13 },
+    { name:"Lille",      lat:50.6292, lng: 3.0573, zoom:13 },
+    { name:"Montpellier",lat:43.6108, lng: 3.8767, zoom:13 },
+  ],
+  "Germany": [
+    { name:"Berlin",    lat:52.5200, lng:13.4050, zoom:13 },
+    { name:"Munich",    lat:48.1351, lng:11.5820, zoom:13 },
+    { name:"Hamburg",   lat:53.5753, lng:10.0153, zoom:13 },
+    { name:"Frankfurt", lat:50.1109, lng: 8.6821, zoom:13 },
+    { name:"Cologne",   lat:50.9333, lng: 6.9500, zoom:13 },
+    { name:"Stuttgart", lat:48.7758, lng: 9.1829, zoom:13 },
+    { name:"Düsseldorf",lat:51.2217, lng: 6.7762, zoom:13 },
+    { name:"Dresden",   lat:51.0504, lng:13.7373, zoom:13 },
+    { name:"Leipzig",   lat:51.3397, lng:12.3731, zoom:13 },
+    { name:"Nuremberg", lat:49.4521, lng:11.0767, zoom:13 },
+  ],
+  "Greece": [
+    { name:"Athens",       lat:37.9838, lng:23.7275, zoom:13 },
+    { name:"Thessaloniki", lat:40.6401, lng:22.9444, zoom:13 },
+    { name:"Heraklion",    lat:35.3387, lng:25.1442, zoom:13 },
+    { name:"Rhodes",       lat:36.4341, lng:28.2170, zoom:13 },
+    { name:"Santorini",    lat:36.3932, lng:25.4615, zoom:13 },
+    { name:"Mykonos",      lat:37.4444, lng:25.3289, zoom:13 },
+    { name:"Corfu",        lat:39.6243, lng:19.9217, zoom:13 },
+    { name:"Nafplio",      lat:37.5675, lng:22.8013, zoom:14 },
+  ],
+  "Italy": [
+    { name:"Rome",    lat:41.9028, lng:12.4964, zoom:13 },
+    { name:"Milan",   lat:45.4642, lng: 9.1900, zoom:13 },
+    { name:"Venice",  lat:45.4408, lng:12.3155, zoom:14 },
+    { name:"Florence",lat:43.7696, lng:11.2558, zoom:13 },
+    { name:"Naples",  lat:40.8518, lng:14.2681, zoom:13 },
+    { name:"Turin",   lat:45.0703, lng: 7.6869, zoom:13 },
+    { name:"Bologna", lat:44.4949, lng:11.3426, zoom:13 },
+    { name:"Palermo", lat:38.1157, lng:13.3615, zoom:13 },
+    { name:"Verona",  lat:45.4384, lng:10.9916, zoom:13 },
+    { name:"Amalfi",  lat:40.6340, lng:14.6027, zoom:14 },
+  ],
   "Malta": [
     // Malta island — hasVenues:true shows amber pin in country view
     { name:"Valletta",      lat:35.8997, lng:14.5147, zoom:15, hasVenues:true },
@@ -1723,13 +1803,64 @@ const CITY_DATABASE = {
     { name:"Xewkija",       lat:36.0333, lng:14.2567, zoom:14, hasVenues:true },
     { name:"Xlendi",        lat:36.0312, lng:14.2183, zoom:14, hasVenues:true },
   ],
-  "Netherlands":  [{ name:"Amsterdam",  lat:52.3676, lng: 4.9041 }],
-  "Poland":       [{ name:"Warsaw",     lat:52.2297, lng:21.0122 }],
-  "Portugal":     [{ name:"Lisbon",     lat:38.7169, lng:-9.1399 }],
-  "Spain":        [{ name:"Madrid",     lat:40.4168, lng:-3.7038 },
-                   { name:"Barcelona",  lat:41.3874, lng: 2.1686 }],
-  "Sweden":       [{ name:"Stockholm",  lat:59.3293, lng:18.0686 }],
-  "United Kingdom":[{ name:"London",   lat:51.5074, lng:-0.1278 }],
+  "Netherlands": [
+    { name:"Amsterdam",  lat:52.3676, lng: 4.9041, zoom:13 },
+    { name:"Rotterdam",  lat:51.9225, lng: 4.4792, zoom:13 },
+    { name:"The Hague",  lat:52.0705, lng: 4.3007, zoom:13 },
+    { name:"Utrecht",    lat:52.0907, lng: 5.1214, zoom:13 },
+    { name:"Eindhoven",  lat:51.4416, lng: 5.4697, zoom:13 },
+    { name:"Delft",      lat:52.0116, lng: 4.3571, zoom:13 },
+    { name:"Maastricht", lat:50.8514, lng: 5.6910, zoom:13 },
+  ],
+  "Poland": [
+    { name:"Warsaw",  lat:52.2297, lng:21.0122, zoom:13 },
+    { name:"Kraków",  lat:50.0647, lng:19.9450, zoom:13 },
+    { name:"Gdańsk",  lat:54.3520, lng:18.6466, zoom:13 },
+    { name:"Wrocław", lat:51.1079, lng:17.0385, zoom:13 },
+    { name:"Poznań",  lat:52.4064, lng:16.9252, zoom:13 },
+    { name:"Łódź",    lat:51.7592, lng:19.4560, zoom:13 },
+  ],
+  "Portugal": [
+    { name:"Lisbon",   lat:38.7169, lng:-9.1399, zoom:13 },
+    { name:"Porto",    lat:41.1579, lng:-8.6291, zoom:13 },
+    { name:"Faro",     lat:37.0194, lng:-7.9322, zoom:13 },
+    { name:"Braga",    lat:41.5503, lng:-8.4200, zoom:13 },
+    { name:"Coimbra",  lat:40.2033, lng:-8.4103, zoom:13 },
+    { name:"Funchal",  lat:32.6669, lng:-16.9241,zoom:13 },
+    { name:"Évora",    lat:38.5713, lng:-7.9136, zoom:14 },
+    { name:"Sintra",   lat:38.7978, lng:-9.3906, zoom:14 },
+  ],
+  "Spain": [
+    { name:"Madrid",         lat:40.4168, lng:-3.7038, zoom:13 },
+    { name:"Barcelona",      lat:41.3874, lng: 2.1686, zoom:13 },
+    { name:"Seville",        lat:37.3891, lng:-5.9845, zoom:13 },
+    { name:"Valencia",       lat:39.4699, lng:-0.3763, zoom:13 },
+    { name:"Bilbao",         lat:43.2630, lng:-2.9350, zoom:13 },
+    { name:"Málaga",         lat:36.7213, lng:-4.4214, zoom:13 },
+    { name:"San Sebastián",  lat:43.3183, lng:-1.9812, zoom:13 },
+    { name:"Granada",        lat:37.1773, lng:-3.5986, zoom:13 },
+    { name:"Palma",          lat:39.5696, lng: 2.6502, zoom:13 },
+    { name:"Santiago de Compostela", lat:42.8782, lng:-8.5448, zoom:13 },
+  ],
+  "Sweden": [
+    { name:"Stockholm",  lat:59.3293, lng:18.0686, zoom:13 },
+    { name:"Gothenburg", lat:57.7089, lng:11.9746, zoom:13 },
+    { name:"Malmö",      lat:55.6050, lng:13.0038, zoom:13 },
+    { name:"Uppsala",    lat:59.8586, lng:17.6389, zoom:13 },
+    { name:"Lund",       lat:55.7047, lng:13.1910, zoom:13 },
+  ],
+  "United Kingdom": [
+    { name:"London",     lat:51.5074, lng:-0.1278, zoom:13 },
+    { name:"Edinburgh",  lat:55.9533, lng:-3.1883, zoom:13 },
+    { name:"Manchester", lat:53.4808, lng:-2.2426, zoom:13 },
+    { name:"Birmingham", lat:52.4862, lng:-1.8904, zoom:13 },
+    { name:"Bristol",    lat:51.4545, lng:-2.5879, zoom:13 },
+    { name:"Liverpool",  lat:53.4084, lng:-2.9916, zoom:13 },
+    { name:"Glasgow",    lat:55.8642, lng:-4.2518, zoom:13 },
+    { name:"Bath",       lat:51.3813, lng:-2.3597, zoom:14 },
+    { name:"Oxford",     lat:51.7520, lng:-1.2577, zoom:14 },
+    { name:"Cambridge",  lat:52.2053, lng: 0.1218, zoom:14 },
+  ],
 };
 
 // ISO 3166-1 numeric IDs for navigable countries
