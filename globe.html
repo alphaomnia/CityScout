@@ -116,6 +116,114 @@
   .status-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.03); color: #64748b; }
   .status-table td:first-child { font-weight: 600; color: #94a3b8; }
 
+  /* ── Venue detail split-view ──────────────────────────────────────────── */
+  #vd-list-view  { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+  #vd-detail-view { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+  #vd-detail-view.active { display: flex; }
+
+  #vd-header {
+    display: flex; align-items: center; gap: 12px; padding: 10px 20px;
+    background: rgba(6,11,24,0.95); border-bottom: 1px solid rgba(255,255,255,.06);
+    flex-shrink: 0; min-height: 52px;
+  }
+  #vd-back {
+    background: rgba(30,41,59,.8); border: 1px solid rgba(255,255,255,.08);
+    color: #94a3b8; padding: 5px 12px; border-radius: 5px; cursor: pointer;
+    font-size: 12px; white-space: nowrap; flex-shrink: 0;
+  }
+  #vd-back:hover { color: #e2e8f0; }
+  #vd-title { font-size: 15px; font-weight: 700; color: #e2e8f0; flex: 1; }
+  #vd-status-badge {
+    font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 4px;
+    letter-spacing: .5px; text-transform: uppercase; flex-shrink: 0;
+  }
+  #vd-header-save {
+    background: #6366f1; border: none; color: #fff; padding: 6px 16px;
+    border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+  }
+  #vd-header-save:hover { background: #818cf8; }
+
+  #vd-split {
+    display: flex; flex: 1; min-height: 0; overflow: hidden;
+  }
+  #vd-map-col {
+    flex: 0 0 55%; height: 100%; position: relative; background: #0a1628;
+  }
+  #vd-map { width: 100%; height: 100%; }
+  #vd-map-hint {
+    position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+    background: rgba(6,11,24,.85); color: #64748b; font-size: 10px;
+    padding: 4px 10px; border-radius: 4px; pointer-events: none; white-space: nowrap;
+    z-index: 1000;
+  }
+
+  #vd-form-col {
+    flex: 0 0 45%; overflow-y: auto; padding: 20px 22px 60px;
+    border-left: 1px solid rgba(255,255,255,.06);
+    background: #080e1c;
+  }
+  .vd-section { margin-bottom: 24px; }
+  .vd-section-title {
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #334155; margin-bottom: 12px; padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+  }
+  .vd-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .vd-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 120px; }
+  .vd-field label { font-size: 10px; color: #475569; text-transform: uppercase; letter-spacing: .8px; }
+  .vd-field input, .vd-field select, .vd-field textarea {
+    background: rgba(30,41,59,.8); border: 1px solid rgba(255,255,255,.08);
+    color: #e2e8f0; font-size: 12px; padding: 7px 9px; border-radius: 6px;
+    outline: none; font-family: inherit; width: 100%;
+  }
+  .vd-field textarea { resize: vertical; min-height: 72px; }
+  .vd-field input:focus, .vd-field select:focus, .vd-field textarea:focus {
+    border-color: rgba(99,102,241,.5);
+  }
+  #vd-save-msg { font-size: 11px; color: #22c55e; margin-left: 4px; }
+
+  /* Photo gallery */
+  .photo-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px; margin-bottom: 12px;
+  }
+  .photo-thumb {
+    position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden;
+    background: rgba(30,41,59,.8); border: 1px solid rgba(255,255,255,.06);
+    cursor: pointer;
+  }
+  .photo-thumb img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: opacity .15s;
+  }
+  .photo-thumb:hover img { opacity: .75; }
+  .photo-thumb .photo-del {
+    position: absolute; top: 4px; right: 4px; background: rgba(239,68,68,.85);
+    border: none; color: #fff; border-radius: 3px; font-size: 10px;
+    padding: 2px 5px; cursor: pointer; display: none; line-height: 1;
+  }
+  .photo-thumb:hover .photo-del { display: block; }
+  .photo-thumb .photo-primary {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(99,102,241,.8); color: #fff; font-size: 9px;
+    text-align: center; padding: 2px; font-weight: 700; letter-spacing: .5px;
+  }
+  .upload-zone {
+    border: 2px dashed rgba(99,102,241,.3); border-radius: 8px;
+    padding: 20px; text-align: center; cursor: pointer; transition: border-color .15s;
+  }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: #6366f1; }
+  .upload-zone p { font-size: 12px; color: #475569; margin: 0; }
+  .upload-zone p strong { color: #818cf8; }
+  #vd-photo-input { display: none; }
+  #vd-upload-progress { font-size: 11px; color: #818cf8; margin-top: 8px; display: none; }
+
+  @media (max-width: 700px) {
+    #vd-split { flex-direction: column; }
+    #vd-map-col { flex: 0 0 40vh; }
+    #vd-form-col { flex: 1; }
+  }
+
   #loading {
     position: fixed; inset: 0; background: #0f172a;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -540,48 +648,191 @@
 
 <!-- ── Venues tab panel ─────────────────────────────────────────────────── -->
 <div id="tab-panel-venues" class="tab-panel">
-  <div class="tab-panel-header">
-    <div>
-      <h2>Venues</h2>
-      <p>All candidates in the database — click a row to open the review sidebar on the map.</p>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
+
+  <!-- ── List view ─────────────────────────────────────────────────────── -->
+  <div id="vd-list-view">
+    <div class="tab-panel-header">
+      <div>
+        <h2>Venues</h2>
+        <p>All candidates — click any row to open the detail & edit view.</p>
+      </div>
       <span id="venues-count" style="font-size:11px;color:#334155"></span>
     </div>
-  </div>
-  <div class="tab-panel-body">
-    <div id="tab-venues-search-row">
-      <input id="vt-search" type="text" placeholder="Search by name or city…" oninput="filterVenuesTable()">
-      <select id="vt-status" onchange="filterVenuesTable()">
-        <option value="">All statuses</option>
-        <option value="stub">Stub</option>
-        <option value="needs_review">Needs Review</option>
-        <option value="approved_for_inclusion">Approved</option>
-        <option value="published">Published</option>
-        <option value="rejected">Rejected</option>
-        <option value="needs_visit">Needs Visit</option>
-      </select>
-      <select id="vt-city" onchange="filterVenuesTable()">
-        <option value="">All cities</option>
-      </select>
+    <div class="tab-panel-body">
+      <div id="tab-venues-search-row">
+        <input id="vt-search" type="text" placeholder="Search by name or city…" oninput="filterVenuesTable()">
+        <select id="vt-status" onchange="filterVenuesTable()">
+          <option value="">All statuses</option>
+          <option value="stub">Stub</option>
+          <option value="needs_review">Needs Review</option>
+          <option value="approved_for_inclusion">Approved</option>
+          <option value="published">Published</option>
+          <option value="rejected">Rejected</option>
+          <option value="needs_visit">Needs Visit</option>
+        </select>
+        <select id="vt-city" onchange="filterVenuesTable()">
+          <option value="">All cities</option>
+        </select>
+      </div>
+      <table id="venues-table">
+        <thead>
+          <tr>
+            <th>Name</th><th>City</th><th>Status</th>
+            <th>Category</th><th>Tier</th><th>Source</th><th>Updated</th>
+          </tr>
+        </thead>
+        <tbody id="venues-tbody"></tbody>
+      </table>
+      <button id="venues-load-more" style="display:none" onclick="loadMoreVenues()">Load more</button>
     </div>
-    <table id="venues-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>City</th>
-          <th>Status</th>
-          <th>Category</th>
-          <th>Tier</th>
-          <th>Source</th>
-          <th>Updated</th>
-        </tr>
-      </thead>
-      <tbody id="venues-tbody"></tbody>
-    </table>
-    <button id="venues-load-more" style="display:none" onclick="loadMoreVenues()">Load more</button>
   </div>
-</div>
+
+  <!-- ── Detail / edit split-view ──────────────────────────────────────── -->
+  <div id="vd-detail-view">
+    <div id="vd-header">
+      <button id="vd-back" onclick="closeVenueDetail()">← Back</button>
+      <span id="vd-title">—</span>
+      <span id="vd-status-badge"></span>
+      <button id="vd-header-save" onclick="saveVenueDetail()">Save Changes</button>
+    </div>
+
+    <div id="vd-split">
+      <!-- Left: map -->
+      <div id="vd-map-col">
+        <div id="vd-map"></div>
+        <div id="vd-map-hint">Drag the pin or click the map to reposition</div>
+      </div>
+
+      <!-- Right: edit form + photos -->
+      <div id="vd-form-col">
+        <div id="vd-save-msg"></div>
+
+        <div class="vd-section">
+          <div class="vd-section-title">Core Info</div>
+          <div class="vd-row">
+            <div class="vd-field" style="flex:2">
+              <label>Name</label>
+              <input id="vdf-name" type="text">
+            </div>
+            <div class="vd-field">
+              <label>Tier</label>
+              <select id="vdf-tier">
+                <option value="">—</option>
+                <option value="tier1">Tier 1</option>
+                <option value="tier2">Tier 2</option>
+                <option value="tier3">Tier 3</option>
+                <option value="tier4">Tier 4</option>
+                <option value="tier5">Tier 5</option>
+              </select>
+            </div>
+          </div>
+          <div class="vd-row">
+            <div class="vd-field">
+              <label>Category</label>
+              <input id="vdf-category" type="text" placeholder="e.g. coffee, restaurant">
+            </div>
+            <div class="vd-field">
+              <label>Slug</label>
+              <input id="vdf-slug" type="text" placeholder="url-friendly-slug">
+            </div>
+          </div>
+          <div class="vd-row">
+            <div class="vd-field">
+              <label>Description</label>
+              <textarea id="vdf-description" rows="3"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="vd-section">
+          <div class="vd-section-title">Location</div>
+          <div class="vd-row">
+            <div class="vd-field" style="flex:2">
+              <label>Address</label>
+              <input id="vdf-address" type="text">
+            </div>
+          </div>
+          <div class="vd-row">
+            <div class="vd-field">
+              <label>City</label>
+              <input id="vdf-city" type="text">
+            </div>
+            <div class="vd-field">
+              <label>Country</label>
+              <input id="vdf-country" type="text">
+            </div>
+          </div>
+          <div class="vd-row">
+            <div class="vd-field">
+              <label>Latitude</label>
+              <input id="vdf-lat" type="number" step="any" placeholder="e.g. 50.0755">
+            </div>
+            <div class="vd-field">
+              <label>Longitude</label>
+              <input id="vdf-lng" type="number" step="any" placeholder="e.g. 14.4378">
+            </div>
+          </div>
+        </div>
+
+        <div class="vd-section">
+          <div class="vd-section-title">Venue Attributes</div>
+          <div class="vd-row">
+            <div class="vd-field">
+              <label>Food Type</label>
+              <input id="vdf-food-type" type="text" placeholder="e.g. Italian, Vegetarian">
+            </div>
+            <div class="vd-field">
+              <label>Dining Type</label>
+              <select id="vdf-dining-type">
+                <option value="">—</option>
+                <option value="dine-in">Dine-in</option>
+                <option value="takeaway">Takeaway</option>
+                <option value="delivery">Delivery</option>
+                <option value="dine-in, takeaway">Dine-in &amp; Takeaway</option>
+                <option value="cafe">Café</option>
+                <option value="bar">Bar</option>
+              </select>
+            </div>
+            <div class="vd-field">
+              <label>Seating</label>
+              <input id="vdf-seating" type="text" placeholder="e.g. indoor, outdoor">
+            </div>
+          </div>
+          <div class="vd-row">
+            <div class="vd-field">
+              <label>Tags (comma-separated)</label>
+              <input id="vdf-tags" type="text" placeholder="e.g. wine, jazz, rooftop">
+            </div>
+          </div>
+        </div>
+
+        <div class="vd-section">
+          <div class="vd-section-title">Photos</div>
+          <div id="vd-photo-grid" class="photo-grid"></div>
+
+          <div class="upload-zone" id="vd-upload-zone"
+               onclick="document.getElementById('vd-photo-input').click()"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="handlePhotoDrop(event)">
+            <p><strong>Click to upload</strong> or drag &amp; drop photos here</p>
+            <p style="margin-top:4px;font-size:10px">JPG, PNG, WEBP, GIF — max 20 MB each</p>
+          </div>
+          <input id="vd-photo-input" type="file" accept="image/*" multiple onchange="handlePhotoSelect(event)">
+          <div id="vd-upload-progress"></div>
+        </div>
+
+        <div class="vd-section" style="margin-bottom:0">
+          <button id="vd-header-save2" onclick="saveVenueDetail()"
+            style="background:#6366f1;border:none;color:#fff;padding:9px 24px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;width:100%">
+            Save Changes
+          </button>
+        </div>
+      </div><!-- /vd-form-col -->
+    </div><!-- /vd-split -->
+  </div><!-- /vd-detail-view -->
+
+</div><!-- /tab-panel-venues -->
 
 <!-- ── Settings tab panel ───────────────────────────────────────────────── -->
 <div id="tab-panel-settings" class="tab-panel">
@@ -2785,20 +3036,285 @@ function renderVenuesTable() {
 
 function loadMoreVenues() { _vtPage++; renderVenuesTable(); }
 
+// ── Venue detail split-view ──────────────────────────────────────────────────
+let _vdMap    = null;   // Leaflet map instance for detail view
+let _vdMarker = null;   // draggable pin
+let _vdCand   = null;   // candidate object currently being viewed
+
 async function openVenueFromTable(candidateId) {
-  // Switch to globe tab to show the map + review panel
-  switchTab('globe');
   let cand;
   try {
     const r = await fetch(`${API}/candidates/${candidateId}`);
     cand    = await r.json();
   } catch(e) { return; }
+  openVenueDetail(cand);
+}
 
-  // If we have a map, open the review panel directly
-  if (lMap) {
-    openReviewPanel(cand);
-    // If we have coordinates, fly the map to the venue
-    if (cand.lat && cand.lng) lMap.flyTo([cand.lat, cand.lng], 15, { duration: 1 });
+function openVenueDetail(cand) {
+  _vdCand = cand;
+
+  // Switch views
+  document.getElementById('vd-list-view').style.display   = 'none';
+  document.getElementById('vd-detail-view').classList.add('active');
+
+  // Header
+  document.getElementById('vd-title').textContent = cand.canonical_name || '—';
+  const col   = STATUS_COLOR[cand.candidate_status] || '#64748b';
+  const label = STATUS_LABEL[cand.candidate_status] || cand.candidate_status;
+  const badge = document.getElementById('vd-status-badge');
+  badge.textContent = label;
+  badge.style.cssText = `background:${col}22;color:${col};font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;letter-spacing:.5px;text-transform:uppercase`;
+
+  // Populate form fields
+  _setVdf('name',        cand.canonical_name   || '');
+  _setVdf('tier',        cand.tier             || '');
+  _setVdf('category',    cand.category         || '');
+  _setVdf('slug',        cand.slug             || '');
+  _setVdf('description', cand.description      || '');
+  _setVdf('address',     cand.address          || '');
+  _setVdf('city',        cand.city             || '');
+  _setVdf('country',     cand.country          || '');
+  _setVdf('lat',         cand.lat != null ? cand.lat : '');
+  _setVdf('lng',         cand.lng != null ? cand.lng : '');
+  _setVdf('food-type',   cand.food_type        || '');
+  _setVdf('dining-type', cand.dining_type      || '');
+  _setVdf('seating',     cand.seating          || '');
+
+  let tags = [];
+  try { tags = JSON.parse(cand.tags || '[]'); } catch(e) {}
+  _setVdf('tags', Array.isArray(tags) ? tags.join(', ') : tags);
+
+  document.getElementById('vd-save-msg').textContent = '';
+
+  // Photos
+  _renderPhotoGrid(cand);
+
+  // Map — must init after the panel is visible
+  requestAnimationFrame(() => _initDetailMap(cand.lat, cand.lng));
+}
+
+function closeVenueDetail() {
+  document.getElementById('vd-detail-view').classList.remove('active');
+  document.getElementById('vd-list-view').style.display = 'flex';
+  if (_vdMap) { _vdMap.remove(); _vdMap = null; _vdMarker = null; }
+  _vdCand = null;
+}
+
+function _setVdf(id, val) {
+  const el = document.getElementById(`vdf-${id}`);
+  if (!el) return;
+  el.value = val;
+}
+
+function _initDetailMap(lat, lng) {
+  if (_vdMap) { _vdMap.remove(); _vdMap = null; _vdMarker = null; }
+
+  const hasCoords = lat != null && lng != null && !(lat === 0 && lng === 0);
+
+  _vdMap = L.map('vd-map', { zoomControl: true })
+            .setView(hasCoords ? [lat, lng] : [20, 0], hasCoords ? 16 : 2);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap contributors © CARTO', maxZoom: 19
+  }).addTo(_vdMap);
+
+  if (hasCoords) {
+    _vdMarker = L.marker([lat, lng], { draggable: true }).addTo(_vdMap);
+    _vdMarker.on('dragend', _onMarkerMove);
+  }
+
+  _vdMap.on('click', function(e) {
+    const { lat: clat, lng: clng } = e.latlng;
+    if (_vdMarker) {
+      _vdMarker.setLatLng([clat, clng]);
+    } else {
+      _vdMarker = L.marker([clat, clng], { draggable: true }).addTo(_vdMap);
+      _vdMarker.on('dragend', _onMarkerMove);
+    }
+    _syncCoordInputs(clat, clng);
+  });
+
+  // Delay invalidateSize so the flex layout has fully painted before Leaflet measures
+  setTimeout(() => _vdMap && _vdMap.invalidateSize(), 50);
+}
+
+function _onMarkerMove(e) {
+  const { lat, lng } = e.target.getLatLng();
+  _syncCoordInputs(lat, lng);
+}
+
+function _syncCoordInputs(lat, lng) {
+  document.getElementById('vdf-lat').value = lat.toFixed(7);
+  document.getElementById('vdf-lng').value = lng.toFixed(7);
+}
+
+// Update marker when lat/lng inputs are typed manually
+window.addEventListener('load', function() {
+  ['vdf-lat','vdf-lng'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', function() {
+      const lat = parseFloat(document.getElementById('vdf-lat').value);
+      const lng = parseFloat(document.getElementById('vdf-lng').value);
+      if (isNaN(lat) || isNaN(lng) || !_vdMap) return;
+      if (_vdMarker) {
+        _vdMarker.setLatLng([lat, lng]);
+      } else {
+        _vdMarker = L.marker([lat, lng], { draggable: true }).addTo(_vdMap);
+        _vdMarker.on('dragend', _onMarkerMove);
+      }
+      _vdMap.flyTo([lat, lng], 16, { duration: 0.8 });
+    });
+  });
+});
+
+async function saveVenueDetail() {
+  if (!_vdCand) return;
+
+  const tagsRaw = document.getElementById('vdf-tags').value;
+  const tags    = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+
+  const _str  = id => document.getElementById(id).value.trim() || undefined;
+  const _sel  = id => document.getElementById(id).value        || undefined;
+  const _flt  = id => { const v = document.getElementById(id).value.trim(); return v !== '' ? parseFloat(v) : undefined; };
+
+  const body = {
+    canonical_name: _str('vdf-name'),
+    tier:           _sel('vdf-tier'),
+    category:       _str('vdf-category'),
+    slug:           _str('vdf-slug'),
+    description:    _str('vdf-description'),
+    address:        _str('vdf-address'),
+    city:           _str('vdf-city'),
+    country:        _str('vdf-country'),
+    lat:            _flt('vdf-lat'),
+    lng:            _flt('vdf-lng'),
+    food_type:      _str('vdf-food-type'),
+    dining_type:    _sel('vdf-dining-type'),
+    seating:        _str('vdf-seating'),
+    tags:           tags.length ? tags : undefined,
+  };
+
+  // Strip undefined keys
+  Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
+
+  try {
+    const r = await fetch(`${API}/candidates/${_vdCand.candidate_id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const updated = await r.json();
+    _vdCand = updated;
+
+    // Refresh header name + update list row in background
+    document.getElementById('vd-title').textContent = updated.canonical_name || '—';
+    const msg = document.getElementById('vd-save-msg');
+    msg.textContent = '✓ Saved';
+    msg.style.color = '#22c55e';
+    setTimeout(() => { msg.textContent = ''; }, 2500);
+
+    // Move marker if coords changed
+    if (_vdMarker && updated.lat && updated.lng) {
+      _vdMarker.setLatLng([updated.lat, updated.lng]);
+    }
+  } catch(e) {
+    const msg = document.getElementById('vd-save-msg');
+    msg.textContent = '✗ ' + e.message;
+    msg.style.color = '#ef4444';
+  }
+}
+
+// ── Photos ───────────────────────────────────────────────────────────────────
+function _photoUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  return window.location.origin + path;
+}
+
+function _renderPhotoGrid(cand) {
+  const grid = document.getElementById('vd-photo-grid');
+  if (!grid) return;
+
+  // API returns photos as a parsed array; internal updates also store arrays
+  const photos = Array.isArray(cand.photos) ? cand.photos
+               : (typeof cand.photos === 'string' ? JSON.parse(cand.photos || '[]') : []);
+
+  const items = [];
+  if (cand.image_url) items.push({ url: cand.image_url, primary: true });
+  photos.forEach(p => { if (p !== cand.image_url) items.push({ url: p, primary: false }); });
+
+  if (!items.length) {
+    grid.innerHTML = '<p style="font-size:11px;color:#334155;margin-bottom:12px">No photos yet.</p>';
+    return;
+  }
+
+  grid.innerHTML = items.map(item => {
+    const src   = _photoUrl(item.url);
+    const isLocal = !item.url.startsWith('http');
+    const delBtn  = isLocal
+      ? `<button class="photo-del" onclick="deleteVenuePhoto('${item.url}',this)" title="Remove">✕</button>`
+      : '';
+    const primary = item.primary ? `<div class="photo-primary">Primary</div>` : '';
+    return `<div class="photo-thumb">
+      <img src="${src}" loading="lazy" onerror="this.style.opacity='.2'" onclick="window.open('${src}','_blank')">
+      ${delBtn}${primary}
+    </div>`;
+  }).join('');
+}
+
+async function deleteVenuePhoto(path, btn) {
+  if (!_vdCand) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch(`${API}/candidates/${_vdCand.candidate_id}/photos?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    _vdCand.photos = data.photos;   // API returns updated array
+    _renderPhotoGrid(_vdCand);
+  } catch(e) {
+    btn.disabled = false;
+    alert('Delete failed: ' + e.message);
+  }
+}
+
+async function handlePhotoSelect(event) {
+  const files = [...event.target.files];
+  event.target.value = '';
+  for (const f of files) await _uploadPhoto(f);
+}
+
+function handlePhotoDrop(event) {
+  event.preventDefault();
+  document.getElementById('vd-upload-zone').classList.remove('drag-over');
+  const files = [...event.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+  files.forEach(f => _uploadPhoto(f));
+}
+
+async function _uploadPhoto(file) {
+  if (!_vdCand) return;
+  const prog = document.getElementById('vd-upload-progress');
+  prog.style.display = 'block';
+  prog.textContent   = `Uploading ${file.name}…`;
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const r = await fetch(`${API}/candidates/${_vdCand.candidate_id}/photos`, {
+      method: 'POST', body: form,
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    _vdCand.photos = data.photos;   // API returns updated array
+    _renderPhotoGrid(_vdCand);
+    prog.textContent = `✓ ${file.name} uploaded`;
+    setTimeout(() => { prog.style.display = 'none'; }, 2000);
+  } catch(e) {
+    prog.textContent = `✗ Upload failed: ${e.message}`;
+    prog.style.color = '#ef4444';
+    setTimeout(() => { prog.style.display = 'none'; prog.style.color = ''; }, 4000);
   }
 }
 
