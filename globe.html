@@ -1133,6 +1133,7 @@ const CITIES = [
   { name: "London",    inc: 52, phase: 0.00, spd: 0.29, rf: 1.18 },
   { name: "Paris",     inc: 38, phase: 0.52, spd: 0.34, rf: 1.28 },
   { name: "Berlin",    inc: 65, phase: 1.05, spd: 0.26, rf: 1.40 },
+  { name: "Valletta",  inc: 34, phase: 1.31, spd: 0.28, rf: 1.22 },  // Malta
   { name: "Rome",      inc: 44, phase: 1.57, spd: 0.31, rf: 1.18 },
   { name: "Madrid",    inc: 72, phase: 2.09, spd: 0.22, rf: 1.54 },
   { name: "Amsterdam", inc: 55, phase: 2.62, spd: 0.20, rf: 1.28 },
@@ -1329,10 +1330,14 @@ const VENUE_DETAILS = {
   "Garage": {"desc": "A Prague cult classic for takeaway poutine and indulgent Canadian comfort food that people happily cross neighborhoods for. Small format, no nonsense and exactly the kind of greasy rewarding stop that solves a bad day very quickly.", "cat": "Takeaway", "addr": "Prague 8 - Karlin, Prague", "food": "Canadian", "din": "Lunch", "seat": "counter", "tags": ["Poutine", "Fast food"], "img": "https://dgncazemkqsfxxmjdrbq.supabase.co/storage/v1/object/public/establishment-photos/seed/p7-garage/web-0.jpg", "slug": "p7-garage"},
 };
 
-const TIER_NODE_COLORS  = { Exceptional:[251,191,36], Great:[129,140,248], Good:[148,163,184], New:[52,211,153] };
-const TIER_NODE_HEIGHTS = { Exceptional:1.22, Great:1.16, New:1.12, Good:1.09 };
-const TIER_NODE_SIZES   = { Exceptional:2.8,  Great:2.0,  New:1.8,  Good:1.5  };
-const TIER_LINE_WIDTHS  = { Exceptional:1.8,  Great:1.2,  New:1.0,  Good:0.7  };
+const TIER_NODE_COLORS  = { Exceptional:[251,191,36], Great:[129,140,248], Good:[148,163,184], New:[52,211,153],
+                             tier1:[251,191,36], tier2:[129,140,248], tier3:[148,163,184], tier4:[100,116,139], tier5:[71,85,105] };
+const TIER_NODE_HEIGHTS = { Exceptional:1.22, Great:1.16, New:1.12, Good:1.09,
+                             tier1:1.22, tier2:1.16, tier3:1.09, tier4:1.06, tier5:1.04 };
+const TIER_NODE_SIZES   = { Exceptional:2.8,  Great:2.0,  New:1.8,  Good:1.5,
+                             tier1:2.8, tier2:2.0, tier3:1.5, tier4:1.3, tier5:1.2 };
+const TIER_LINE_WIDTHS  = { Exceptional:1.8,  Great:1.2,  New:1.0,  Good:0.7,
+                             tier1:1.8, tier2:1.2, tier3:0.7, tier4:0.55, tier5:0.45 };
 
 // Prague reference point (used for visibility culling)
 const PRAGUE_LON = 14.434, PRAGUE_LAT = 50.097;
@@ -1349,11 +1354,12 @@ const DISTRICTS = {
 let VENUE_NODES = [];
 let COUNTRY_RINGS = {}; // numericId → ring[][]
 
-// Venue count per city name — drives satellite size; grows as cities get data
-// Keys must match the `name` field in CITY_DATABASE entries.
+// Venue count per city name — drives satellite size and colour.
+// Keys match the `name` field in the CITIES (satellite) array.
+// Seeded with static counts; refreshed from the API in initGlobeVenueCounts().
 const CITY_VENUE_COUNTS = {
-  "Prague": VENUES.length,
-  // future: "Vienna": 0, "Valletta": 0, …
+  "Prague":   VENUES.length,  // static Prague seed
+  "Valletta": 0,              // updated from API on load
 };
 
 // ── Navigable cities database ─────────────────────────────────────────────
@@ -1367,31 +1373,31 @@ const CITY_DATABASE = {
   "Italy":        [{ name:"Rome",       lat:41.9028, lng:12.4964 },
                    { name:"Milan",      lat:45.4642, lng: 9.1900 }],
   "Malta": [
-    // Malta island
-    { name:"Valletta",      lat:35.8997, lng:14.5147, zoom:15 },
-    { name:"Floriana",      lat:35.8917, lng:14.5065, zoom:15 },
-    { name:"Sliema",        lat:35.9122, lng:14.5027, zoom:15 },
-    { name:"St. Julian's",  lat:35.9187, lng:14.4892, zoom:15 },
-    { name:"Vittoriosa",    lat:35.8886, lng:14.5224, zoom:15 },
-    { name:"Senglea",       lat:35.8896, lng:14.5169, zoom:15 },
+    // Malta island — hasVenues:true shows amber pin in country view
+    { name:"Valletta",      lat:35.8997, lng:14.5147, zoom:15, hasVenues:true },
+    { name:"Floriana",      lat:35.8917, lng:14.5065, zoom:15, hasVenues:true },
+    { name:"Sliema",        lat:35.9122, lng:14.5027, zoom:15, hasVenues:true },
+    { name:"St. Julian's",  lat:35.9187, lng:14.4892, zoom:15, hasVenues:true },
+    { name:"Vittoriosa",    lat:35.8886, lng:14.5224, zoom:15, hasVenues:true },
+    { name:"Senglea",       lat:35.8896, lng:14.5169, zoom:15, hasVenues:true },
     { name:"Birkirkara",    lat:35.8975, lng:14.4617, zoom:14 },
-    { name:"Mosta",         lat:35.9094, lng:14.4258, zoom:14 },
+    { name:"Mosta",         lat:35.9094, lng:14.4258, zoom:14, hasVenues:true },
     { name:"St. Paul's Bay",lat:35.9494, lng:14.4017, zoom:14 },
     { name:"Mellieħa",      lat:35.9572, lng:14.3617, zoom:14 },
-    { name:"Mdina",         lat:35.8872, lng:14.4019, zoom:15 },
-    { name:"Rabat",         lat:35.8828, lng:14.3992, zoom:15 },
-    { name:"Dingli",        lat:35.8599, lng:14.3826, zoom:14 },
-    { name:"Mgarr",         lat:35.9198, lng:14.3637, zoom:14 },
-    { name:"Qrendi",        lat:35.8219, lng:14.4524, zoom:14 },
-    { name:"Marsaxlokk",    lat:35.8419, lng:14.5436, zoom:14 },
+    { name:"Mdina",         lat:35.8872, lng:14.4019, zoom:15, hasVenues:true },
+    { name:"Rabat",         lat:35.8828, lng:14.3992, zoom:15, hasVenues:true },
+    { name:"Dingli",        lat:35.8599, lng:14.3826, zoom:14, hasVenues:true },
+    { name:"Mgarr",         lat:35.9198, lng:14.3637, zoom:14, hasVenues:true },
+    { name:"Qrendi",        lat:35.8219, lng:14.4524, zoom:14, hasVenues:true },
+    { name:"Marsaxlokk",    lat:35.8419, lng:14.5436, zoom:14, hasVenues:true },
     { name:"Marsaskala",    lat:35.8636, lng:14.5578, zoom:14 },
     { name:"Żabbar",        lat:35.8736, lng:14.5344, zoom:14 },
-    { name:"Qormi",         lat:35.8756, lng:14.4697, zoom:14 },
+    { name:"Qormi",         lat:35.8756, lng:14.4697, zoom:14, hasVenues:true },
     // Gozo island
-    { name:"Victoria",      lat:36.0444, lng:14.2394, zoom:14 },
-    { name:"Nadur",         lat:36.0400, lng:14.2940, zoom:14 },
-    { name:"Xewkija",       lat:36.0333, lng:14.2567, zoom:14 },
-    { name:"Xlendi",        lat:36.0312, lng:14.2183, zoom:14 },
+    { name:"Victoria",      lat:36.0444, lng:14.2394, zoom:14, hasVenues:true },
+    { name:"Nadur",         lat:36.0400, lng:14.2940, zoom:14, hasVenues:true },
+    { name:"Xewkija",       lat:36.0333, lng:14.2567, zoom:14, hasVenues:true },
+    { name:"Xlendi",        lat:36.0312, lng:14.2183, zoom:14, hasVenues:true },
   ],
   "Netherlands":  [{ name:"Amsterdam",  lat:52.3676, lng: 4.9041 }],
   "Poland":       [{ name:"Warsaw",     lat:52.2297, lng:21.0122 }],
@@ -1656,6 +1662,42 @@ function buildVenueNodes() {
   }
 }
 
+// ── Live globe data from API (Malta spires + dynamic satellite counts) ───────
+async function initMaltaGlobeData() {
+  try {
+    // Fetch all Malta candidates with coordinates
+    const r = await fetch(`${API}/candidates?country=Malta&limit=500`);
+    const d = await r.json();
+    const items = d.items || [];
+
+    let added = 0;
+    for (const c of items) {
+      if (!c.lat || !c.lng) continue;
+      VENUE_NODES.push({
+        name:    c.canonical_name,
+        tier:    c.tier || 'tier3',
+        dist:    c.city || 'Malta',
+        lng:     c.lng,
+        lat:     c.lat,
+        dir:     lonLatToSphere(c.lng, c.lat),
+        country: 'Malta',
+      });
+      added++;
+    }
+
+    // Update satellite counts from live totals
+    CITY_VENUE_COUNTS['Valletta'] = d.total || added;
+
+    // Also refresh Prague count from API for accuracy
+    const pr = await fetch(`${API}/candidates?country=Czech+Republic&limit=1`);
+    const pd = await pr.json();
+    if (pd.total) CITY_VENUE_COUNTS['Prague'] = pd.total;
+
+  } catch(e) {
+    // API offline — globe still works with static Prague data only
+  }
+}
+
 // ── Leaflet flat map view ──────────────────────────────────────────────────
 function initLeafletIfNeeded() {
   if (lMap) return;
@@ -1809,6 +1851,7 @@ async function main() {
   }
   fill(1.0);
   buildVenueNodes();
+  initMaltaGlobeData(); // async — appends Malta spires and live counts
 
   document.getElementById('loading').style.display = 'none';
 
@@ -2348,14 +2391,12 @@ async function main() {
       }
     }
 
-    // ── 10. Venue spires — rooted at each venue's district on the globe ──
+    // ── 10. Venue spires — rooted at each venue's position on the globe ──
     {
-      // Quick visibility check: is the Prague area at all facing the viewer?
-      const [chkX, chkY, chkZ] = rot(...lonLatToSphere(PRAGUE_LON, PRAGUE_LAT));
-      if (chkZ > -0.3) {
-        const zBoost = 1 + (Math.max(1, zoom) - 1) * 0.22;
-        let hoveredNode = null, hoveredDist = 14;
+      const zBoost = 1 + (Math.max(1, zoom) - 1) * 0.22;
+      let hoveredNode = null, hoveredDist = 14;
 
+      if (VENUE_NODES.length > 0) {
         for (let i = 0; i < VENUE_NODES.length; i++) {
           const node = VENUE_NODES[i];
           const [dx, dy, dz] = node.dir;
@@ -2402,34 +2443,39 @@ async function main() {
             hoveredNode = { name: node.name, tier: node.tier, dist: node.dist, sx: tipX, sy: tipY };
           }
         }
+      } // end if (VENUE_NODES.length > 0)
 
-        // District anchor dots — small glowing pins at each neighborhood center
-        for (const [key, dc] of Object.entries(DISTRICTS)) {
-          const [ax, ay, az] = rot(...lonLatToSphere(dc.lng, dc.lat));
-          if (az < 0) continue;
-          const asx = cx - ax * R, asy = cy - ay * R;
-          const da  = 0.5 + az * 0.5;
-          ctx.beginPath();
-          ctx.arc(asx, asy, 3, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255,255,255,${da.toFixed(2)})`;
-          ctx.fill();
+      // District anchor dots — Prague neighbourhood centres only
+      {
+        const [, , pragueZ] = rot(...lonLatToSphere(PRAGUE_LON, PRAGUE_LAT));
+        if (pragueZ > -0.1) {
+          for (const [key, dc] of Object.entries(DISTRICTS)) {
+            const [ax, ay, az] = rot(...lonLatToSphere(dc.lng, dc.lat));
+            if (az < 0) continue;
+            const asx = cx - ax * R, asy = cy - ay * R;
+            const da  = 0.5 + az * 0.5;
+            ctx.beginPath();
+            ctx.arc(asx, asy, 3, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255,255,255,${da.toFixed(2)})`;
+            ctx.fill();
+          }
         }
+      }
 
-        // Hover tooltip
-        if (hoveredNode) {
-          const [r2, g2, b2] = TIER_NODE_COLORS[hoveredNode.tier] || [148, 163, 184];
-          ctx.font = "bold 11px monospace";
-          ctx.textAlign    = "left";
-          ctx.textBaseline = "middle";
-          const tw = ctx.measureText(hoveredNode.name).width;
-          const tx = hoveredNode.sx + 12, ty = hoveredNode.sy;
-          ctx.fillStyle = "rgba(15,23,42,0.90)";
-          ctx.beginPath();
-          ctx.roundRect(tx - 4, ty - 9, tw + 12, 18, 4);
-          ctx.fill();
-          ctx.fillStyle = `rgb(${r2},${g2},${b2})`;
-          ctx.fillText(hoveredNode.name, tx + 2, ty);
-        }
+      // Hover tooltip
+      if (hoveredNode) {
+        const [r2, g2, b2] = TIER_NODE_COLORS[hoveredNode.tier] || [148, 163, 184];
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign    = "left";
+        ctx.textBaseline = "middle";
+        const tw = ctx.measureText(hoveredNode.name).width;
+        const tx = hoveredNode.sx + 12, ty = hoveredNode.sy;
+        ctx.fillStyle = "rgba(15,23,42,0.90)";
+        ctx.beginPath();
+        ctx.roundRect(tx - 4, ty - 9, tw + 12, 18, 4);
+        ctx.fill();
+        ctx.fillStyle = `rgb(${r2},${g2},${b2})`;
+        ctx.fillText(hoveredNode.name, tx + 2, ty);
       }
     }
 
