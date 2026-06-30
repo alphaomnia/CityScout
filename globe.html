@@ -105,16 +105,47 @@
   .settings-note { font-size: 11px; color: #334155; margin-top: 8px; }
 
   /* Manual / Guide tab ─────────────────────────────────────── */
-  .manual-section { margin-bottom: 32px; max-width: 720px; }
-  .manual-section h3 { font-size: 14px; color: #e2e8f0; font-weight: 700; margin-bottom: 10px; }
-  .manual-section p  { font-size: 13px; color: #64748b; line-height: 1.7; margin-bottom: 8px; }
-  .manual-section ul { padding-left: 20px; }
-  .manual-section ul li { font-size: 13px; color: #64748b; line-height: 1.8; }
-  .manual-section ul li strong { color: #94a3b8; }
+  #manual-layout   { display: flex; flex: 1; overflow: hidden; }
+  #manual-sidebar  {
+    width: 200px; flex-shrink: 0; padding: 20px 12px;
+    border-right: 1px solid rgba(255,255,255,.05);
+    overflow-y: auto; background: rgba(6,11,24,.6);
+  }
+  #manual-sidebar h4 {
+    font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: #334155; font-weight: 700; margin-bottom: 10px; padding: 0 6px;
+  }
+  #manual-sidebar .ms-group { margin-bottom: 18px; }
+  #manual-sidebar a {
+    display: block; font-size: 12px; color: #475569; text-decoration: none;
+    padding: 5px 8px; border-radius: 4px; margin-bottom: 1px; line-height: 1.4;
+  }
+  #manual-sidebar a:hover { color: #94a3b8; background: rgba(255,255,255,.04); }
+  #manual-sidebar a.ms-active { color: #818cf8; background: rgba(99,102,241,.08); }
+  #manual-content { flex: 1; overflow-y: auto; padding: 28px 36px 48px; }
+  .manual-section { margin-bottom: 36px; max-width: 760px; scroll-margin-top: 16px; }
+  .manual-section h3 {
+    font-size: 15px; color: #e2e8f0; font-weight: 700; margin-bottom: 12px;
+    padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .manual-section p  { font-size: 13px; color: #64748b; line-height: 1.75; margin-bottom: 8px; }
+  .manual-section ul, .manual-section ol { padding-left: 20px; }
+  .manual-section ul li, .manual-section ol li { font-size: 13px; color: #64748b; line-height: 1.85; }
+  .manual-section ul li strong, .manual-section ol li strong { color: #94a3b8; }
+  .manual-section code { font-family: monospace; font-size: 11px; background: rgba(255,255,255,.07); padding: 2px 5px; border-radius: 3px; color: #a5b4fc; }
   .status-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
   .status-table th { text-align: left; padding: 6px 10px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #334155; border-bottom: 1px solid rgba(255,255,255,.05); }
   .status-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.03); color: #64748b; }
   .status-table td:first-child { font-weight: 600; color: #94a3b8; }
+  .tier-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .tier-table th { text-align: left; padding: 6px 10px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #334155; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .tier-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.03); color: #64748b; }
+  .tier-table td:first-child { font-family: monospace; font-size: 11px; color: #a5b4fc; font-weight: 600; }
+  .faq-item { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,.04); }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-q { font-size: 13px; color: #cbd5e1; font-weight: 600; margin-bottom: 7px; }
+  .faq-q::before { content: "Q  "; color: #6366f1; font-size: 11px; letter-spacing: 1px; }
+  .faq-a { font-size: 13px; color: #64748b; line-height: 1.75; }
 
   /* ── Venue detail split-view ──────────────────────────────────────────── */
   #vd-list-view  { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
@@ -895,56 +926,296 @@
   <div class="tab-panel-header">
     <div><h2>Guide</h2><p>How to use CityScout.</p></div>
   </div>
-  <div class="tab-panel-body">
-    <div class="manual-section">
-      <h3>The Globe</h3>
-      <p>Drag to rotate, scroll to zoom, double-click to reset. Click a country name badge to enter country view. Click a city to open the flat map.</p>
-      <p>Use the <strong>Explore Cities</strong> panel (bottom-left) to jump straight to any city by selecting country then city from the dropdowns.</p>
-    </div>
-    <div class="manual-section">
-      <h3>Candidate Mode</h3>
-      <p>Candidate mode activates automatically when you navigate to a city. The toolbar across the top lets you filter candidates by status or search by name.</p>
-      <p>Click any coloured dot on the map to open the review sidebar on the right. From there you can:</p>
-      <ul>
-        <li><strong>Approve for Inclusion</strong> — moves candidate toward publishing</li>
-        <li><strong>Needs Visit</strong> — flags the venue for an in-person check</li>
-        <li><strong>Needs Review</strong> — pauses the candidate for further research</li>
-        <li><strong>Reject</strong> — removes the candidate from consideration (with reason)</li>
-        <li><strong>Edit Details</strong> — update name, description, category, tier, coordinates, tags, and more via the edit form</li>
-        <li><strong>Log Observation</strong> — record a first-hand or trusted review directly against the candidate</li>
-      </ul>
-    </div>
-    <div class="manual-section">
-      <h3>Adding Venues</h3>
-      <p>Use the toolbar buttons when in a city map view:</p>
-      <ul>
-        <li><strong>↑ Import CSV</strong> — bulk upload venues using the CityScout schema. Download the template first to ensure column alignment with the Lovable database.</li>
-        <li><strong>+ Add Venue</strong> — add a single venue via the form. City and country are pre-filled from the map you're viewing.</li>
-      </ul>
-      <p>All imported venues land as <strong>Stub</strong> status and must be reviewed before they can be published.</p>
-    </div>
-    <div class="manual-section">
-      <h3>Candidate Status Lifecycle</h3>
-      <table class="status-table">
-        <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
-        <tbody>
-          <tr><td>Stub</td><td>Just imported — minimal data, needs enrichment</td></tr>
-          <tr><td>Needs Match</td><td>Cannot be matched to a confirmed map location</td></tr>
-          <tr><td>Source Backed</td><td>Supported by at least one approved source</td></tr>
-          <tr><td>Human Observed</td><td>A verified first-hand review has been logged</td></tr>
-          <tr><td>Needs Review</td><td>Paused — requires more research before deciding</td></tr>
-          <tr><td>Needs Visit</td><td>Needs an in-person check before a decision</td></tr>
-          <tr><td>Approved</td><td>Cleared for inclusion in the guide</td></tr>
-          <tr><td>Rejected</td><td>Excluded, with reason recorded</td></tr>
-          <tr><td>Published</td><td>Live in the guide for users to see</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="manual-section">
-      <h3>CSV Schema</h3>
-      <p>The import CSV must match the Lovable/Supabase <code>establishments</code> table column order exactly. Download the template from the Import CSV panel to get the correct headers. Key required fields: <strong>name</strong>, <strong>city</strong>, <strong>country</strong>. All other fields are optional.</p>
-    </div>
-  </div>
+
+  <div id="manual-layout">
+
+    <!-- Sidebar navigation -->
+    <nav id="manual-sidebar">
+      <div class="ms-group">
+        <h4>Globe</h4>
+        <a href="#ms-globe"     onclick="msScroll(this,'ms-globe')">The Globe</a>
+        <a href="#ms-satellites" onclick="msScroll(this,'ms-satellites')">Satellites</a>
+        <a href="#ms-spires"    onclick="msScroll(this,'ms-spires')">Venue Spires</a>
+        <a href="#ms-country"   onclick="msScroll(this,'ms-country')">Country View</a>
+      </div>
+      <div class="ms-group">
+        <h4>Map &amp; Review</h4>
+        <a href="#ms-candmode"  onclick="msScroll(this,'ms-candmode')">City Map</a>
+        <a href="#ms-review"    onclick="msScroll(this,'ms-review')">Reviewing Candidates</a>
+      </div>
+      <div class="ms-group">
+        <h4>Venues Tab</h4>
+        <a href="#ms-venues-tab"  onclick="msScroll(this,'ms-venues-tab')">Venues List</a>
+        <a href="#ms-venue-detail" onclick="msScroll(this,'ms-venue-detail')">Venue Detail &amp; Edit</a>
+        <a href="#ms-photos"      onclick="msScroll(this,'ms-photos')">Photos</a>
+      </div>
+      <div class="ms-group">
+        <h4>Data</h4>
+        <a href="#ms-add-venues"  onclick="msScroll(this,'ms-add-venues')">Adding Venues</a>
+        <a href="#ms-tiers"       onclick="msScroll(this,'ms-tiers')">Tier System</a>
+        <a href="#ms-lifecycle"   onclick="msScroll(this,'ms-lifecycle')">Status Lifecycle</a>
+        <a href="#ms-csv"         onclick="msScroll(this,'ms-csv')">CSV Schema</a>
+      </div>
+      <div class="ms-group">
+        <h4>Other</h4>
+        <a href="#ms-settings"  onclick="msScroll(this,'ms-settings')">Settings</a>
+        <a href="#ms-faq"       onclick="msScroll(this,'ms-faq')">FAQ</a>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <div id="manual-content">
+
+      <!-- Globe -->
+      <div class="manual-section" id="ms-globe">
+        <h3>The Globe</h3>
+        <p>The globe is the home view. <strong>Drag</strong> to rotate, <strong>scroll</strong> to zoom, <strong>double-click</strong> to reset. Country outlines glow in proportion to how densely populated they are.</p>
+        <p>Click any glowing <strong>country label badge</strong> to enter that country's city view, or use the <strong>Explore Cities</strong> panel in the bottom-left corner to jump directly to any city by selecting a country then a city from the dropdowns.</p>
+      </div>
+
+      <!-- Satellites -->
+      <div class="manual-section" id="ms-satellites">
+        <h3>Satellites</h3>
+        <p>Small spacecraft icons orbit the globe — one per tracked city. Their appearance encodes data at a glance:</p>
+        <ul>
+          <li><strong>Indigo / small</strong> — city has no candidates yet in the database</li>
+          <li><strong>Amber / larger</strong> — city has one or more venue candidates; the size grows proportionally to the count</li>
+        </ul>
+        <p>Satellite counts are fetched live from the backend on page load, so they update as new venues are added. Currently tracked cities include Prague, Valletta (Malta), London, Paris, Rome, and others across Europe.</p>
+      </div>
+
+      <!-- Venue Spires -->
+      <div class="manual-section" id="ms-spires">
+        <h3>Venue Spires</h3>
+        <p>Each venue candidate that has been geocoded appears as a thin colored column rising from its exact position on the globe surface. The color and height encode the venue's tier:</p>
+        <ul>
+          <li><strong style="color:#fbbf24">Amber / tallest</strong> — Tier 1 / Exceptional</li>
+          <li><strong style="color:#818cf8">Indigo</strong> — Tier 2 / Great</li>
+          <li><strong style="color:#94a3b8">Slate</strong> — Tier 3 / Good</li>
+          <li><strong style="color:#64748b">Dim slate</strong> — Tier 4–5 (lesser confidence stubs)</li>
+        </ul>
+        <p>Hover over a spire tip on the globe to see the venue name in a tooltip. Spires only appear when the region is on the visible side of the globe — rotate toward Malta or Prague to see them.</p>
+      </div>
+
+      <!-- Country View -->
+      <div class="manual-section" id="ms-country">
+        <h3>Country View</h3>
+        <p>Clicking a country badge opens the country view — a grid of city pins spread across a flat representation of the country.</p>
+        <ul>
+          <li><strong>Amber pins</strong> — this city has venue candidates in the database</li>
+          <li><strong>Indigo pins</strong> — no candidates yet for this city</li>
+        </ul>
+        <p>Click any city pin to open that city's flat map in candidate mode. Press <strong>← Back to Globe</strong> in the top-left to return.</p>
+      </div>
+
+      <!-- City Map -->
+      <div class="manual-section" id="ms-candmode">
+        <h3>City Map</h3>
+        <p>Navigating to a city opens a Leaflet flat map centered on that city. Candidate mode activates automatically and a toolbar appears at the top with filter and action controls:</p>
+        <ul>
+          <li><strong>Status filter</strong> — show only candidates at a specific lifecycle stage</li>
+          <li><strong>Search box</strong> — filter by venue name</li>
+          <li><strong>+ Add Venue</strong> — open the quick-add form pre-filled with the current city</li>
+          <li><strong>↑ Import CSV</strong> — bulk-import venues from a CSV file</li>
+          <li><strong>← Back</strong> — return to the country or globe view</li>
+        </ul>
+        <p>Venue dots on the map are color-coded by status. Click any dot to open the review sidebar on the right.</p>
+      </div>
+
+      <!-- Reviewing Candidates -->
+      <div class="manual-section" id="ms-review">
+        <h3>Reviewing Candidates</h3>
+        <p>Clicking a venue dot on the city map opens the <strong>review panel</strong>. From here you can:</p>
+        <ul>
+          <li><strong>Approve for Inclusion</strong> — advances the candidate toward publishing</li>
+          <li><strong>Needs Visit</strong> — flags the venue for an in-person check before deciding</li>
+          <li><strong>Needs Review</strong> — pauses the candidate for further research</li>
+          <li><strong>Reject</strong> — excludes the candidate (you'll be prompted to enter a reason)</li>
+          <li><strong>Edit Details</strong> — opens the inline edit form to update name, description, category, tier, coordinates, and tags</li>
+          <li><strong>Log Observation</strong> — records a first-hand or trusted source observation directly against the candidate</li>
+        </ul>
+        <p>All status changes are logged in the decision log with a timestamp and decider identifier, so there is a full audit trail.</p>
+      </div>
+
+      <!-- Venues Tab -->
+      <div class="manual-section" id="ms-venues-tab">
+        <h3>Venues List</h3>
+        <p>The <strong>Venues</strong> tab gives a database-wide table view of all candidates across all countries — useful for bulk review or finding specific venues without navigating the map.</p>
+        <ul>
+          <li>Use the <strong>search box</strong> to filter by name or city</li>
+          <li>Use the <strong>Status</strong> dropdown to filter by lifecycle stage</li>
+          <li>Use the <strong>City</strong> dropdown to narrow to a single city</li>
+          <li>Click any row to open the full <strong>Venue Detail</strong> split-view for that venue</li>
+          <li>Use <strong>Load more</strong> at the bottom if there are more results than the current page</li>
+        </ul>
+      </div>
+
+      <!-- Venue Detail -->
+      <div class="manual-section" id="ms-venue-detail">
+        <h3>Venue Detail &amp; Editing</h3>
+        <p>Clicking a venue row opens a <strong>split-view</strong>: an interactive map on the left and an edit form on the right.</p>
+        <p><strong>Map side:</strong></p>
+        <ul>
+          <li>The pin shows the venue's current geocoded position</li>
+          <li><strong>Drag the pin</strong> or <strong>click anywhere on the map</strong> to reposition — the latitude and longitude fields on the right update in real time</li>
+        </ul>
+        <p><strong>Form side</strong> — editable fields:</p>
+        <ul>
+          <li><strong>Name, Tier, Category, Slug</strong> — core identification</li>
+          <li><strong>Description</strong> — free-text about the venue</li>
+          <li><strong>Address, City, Country</strong> — location details</li>
+          <li><strong>Lat / Lng</strong> — also editable directly; changing these moves the map pin</li>
+          <li><strong>Food type, Dining type, Seating type</strong> — F&amp;B sub-classification</li>
+          <li><strong>Tags</strong> — comma-separated keywords (phone numbers, website URLs, section labels, and other metadata are stored here)</li>
+        </ul>
+        <p>Press <strong>Save Changes</strong> (header or bottom of form) to persist. A confirmation banner fades in on success.</p>
+      </div>
+
+      <!-- Photos -->
+      <div class="manual-section" id="ms-photos">
+        <h3>Photos</h3>
+        <p>The photo gallery lives at the bottom of the venue detail form. Any photos already associated with the venue are shown as thumbnails.</p>
+        <ul>
+          <li><strong>Upload</strong> — drag images into the dashed upload zone, or click it to browse. JPEG, PNG, and WebP are accepted. Multiple files can be dropped at once.</li>
+          <li><strong>Delete</strong> — hover over a thumbnail and click the <strong>×</strong> button to remove a photo. The file is deleted from disk immediately.</li>
+        </ul>
+        <p>Photos are stored in <code>CityScout/photos/{venue-id}/</code> on the local server and served at <code>http://localhost:8080/photos/…</code>.</p>
+      </div>
+
+      <!-- Adding Venues -->
+      <div class="manual-section" id="ms-add-venues">
+        <h3>Adding Venues</h3>
+        <p>There are three ways to add venues:</p>
+        <ol>
+          <li><strong>+ Add Venue (map toolbar)</strong> — opens a quick-add form while viewing a city map. City and country are pre-filled. Fill in the name and any other fields, then save. The venue lands as a <em>Stub</em>.</li>
+          <li><strong>↑ Import CSV (map toolbar)</strong> — bulk-import venues using the CityScout CSV schema. Download the template from the Import panel to ensure column alignment. All imported venues land as <em>Stub</em> status.</li>
+          <li><strong>Python import scripts</strong> — for custom data sources (e.g., <code>import_malta.py</code>), write a script that maps your source fields to the <code>candidate</code> table and run it directly against <code>cityscout.db</code>. After importing, run <code>geocode_malta.py</code> (or a similar script) to fill in lat/lng via Nominatim.</li>
+        </ol>
+        <p>All new venues require at least <strong>name, city, and country</strong>. All other fields are optional but improve map accuracy and review quality.</p>
+      </div>
+
+      <!-- Tier System -->
+      <div class="manual-section" id="ms-tiers">
+        <h3>Tier System</h3>
+        <p>Each venue is assigned a tier that reflects quality and confidence. The tier drives spire color and height on the globe.</p>
+        <table class="tier-table">
+          <thead><tr><th>Tier value</th><th>Globe display</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>tier1 / Exceptional</td><td style="color:#fbbf24">Amber — tallest</td><td>Outstanding venue, highest confidence</td></tr>
+            <tr><td>tier2 / Great</td><td style="color:#818cf8">Indigo</td><td>Highly recommended, well-documented</td></tr>
+            <tr><td>tier3 / Good</td><td style="color:#94a3b8">Slate</td><td>Solid venue, standard confidence</td></tr>
+            <tr><td>tier4</td><td style="color:#64748b">Dim slate</td><td>Limited information, lower confidence</td></tr>
+            <tr><td>tier5</td><td style="color:#475569">Very dim</td><td>Stub-level placeholder, needs enrichment</td></tr>
+          </tbody>
+        </table>
+        <p>Tier is set during import (Malta guide used <em>parse_confidence</em> to pick tier2–4) and can be updated at any time from the Venue Detail form.</p>
+      </div>
+
+      <!-- Status Lifecycle -->
+      <div class="manual-section" id="ms-lifecycle">
+        <h3>Candidate Status Lifecycle</h3>
+        <p>Every candidate follows a defined lifecycle from initial import through to publication (or rejection). Status transitions are logged in the decision log.</p>
+        <table class="status-table">
+          <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>Stub</td><td>Just imported — minimal data, needs enrichment and geocoding</td></tr>
+            <tr><td>Needs Match</td><td>Cannot be matched to a confirmed map location</td></tr>
+            <tr><td>Source Backed</td><td>Supported by at least one approved source</td></tr>
+            <tr><td>Human Observed</td><td>A verified first-hand review has been logged</td></tr>
+            <tr><td>Needs Review</td><td>Paused — requires more research before deciding</td></tr>
+            <tr><td>Needs Visit</td><td>Needs an in-person check before a decision</td></tr>
+            <tr><td>Approved</td><td>Cleared for inclusion — not yet live</td></tr>
+            <tr><td>Rejected</td><td>Excluded from the guide, reason recorded</td></tr>
+            <tr><td>Published</td><td>Live in the guide — visible to end users</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- CSV Schema -->
+      <div class="manual-section" id="ms-csv">
+        <h3>CSV Schema</h3>
+        <p>The standard import CSV should contain these columns (order matters for the bulk-import parser). Download the template from the <strong>↑ Import CSV</strong> panel to get the exact headers.</p>
+        <ul>
+          <li><strong>name</strong> — required. Canonical venue name.</li>
+          <li><strong>city</strong> — required.</li>
+          <li><strong>country</strong> — required.</li>
+          <li><strong>address</strong> — street address, used for geocoding.</li>
+          <li><strong>lat, lng</strong> — pre-geocoded coordinates (decimal degrees). If blank the geocoder will attempt to resolve from the address.</li>
+          <li><strong>category</strong> — venue type (restaurant, bar, café, hotel, …).</li>
+          <li><strong>description</strong> — free-text description.</li>
+          <li><strong>tier</strong> — one of <code>tier1</code>–<code>tier5</code> (or <code>Exceptional</code> / <code>Great</code> / <code>Good</code>).</li>
+          <li><strong>tags</strong> — JSON array string or comma-separated keywords.</li>
+          <li><strong>slug</strong> — URL-safe identifier (auto-generated if blank).</li>
+          <li><strong>status</strong> — initial candidate status; defaults to <code>stub</code> if blank.</li>
+        </ul>
+        <p>Custom schemas (like the Malta guide CSV) require a bespoke import script that maps source columns to the <code>candidate</code> table — see <code>backend/import_malta.py</code> as a reference.</p>
+      </div>
+
+      <!-- Settings -->
+      <div class="manual-section" id="ms-settings">
+        <h3>Settings</h3>
+        <p>The <strong>Settings</strong> tab lets you configure the app without touching code.</p>
+        <ul>
+          <li><strong>API URL</strong> — the base URL of the FastAPI backend. Default is <code>http://localhost:8766</code>. Change this if you're running the backend on a different host or port, then press <strong>Save Settings</strong>.</li>
+          <li><strong>Display options</strong> — controls visible on-globe overlays (satellite labels, spires, district anchors).</li>
+          <li><strong>DB Stats</strong> — shows live candidate counts per country and status fetched from the API.</li>
+        </ul>
+        <p>Settings are persisted in <code>localStorage</code> so they survive page reloads.</p>
+      </div>
+
+      <!-- FAQ -->
+      <div class="manual-section" id="ms-faq">
+        <h3>FAQ</h3>
+
+        <div class="faq-item">
+          <div class="faq-q">Why does the globe show no spires for a country I just imported?</div>
+          <div class="faq-a">Spires require geocoded coordinates (lat/lng). Newly imported stubs often have no coordinates until a geocoding pass is run. Either set lat/lng manually in the Venue Detail form, or run the appropriate geocoding script (e.g. <code>backend/geocode_malta.py</code>) then reload the page.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">Why is the Valletta satellite still indigo / small after I imported Malta venues?</div>
+          <div class="faq-a">Satellite counts are fetched from the API on page load. If the backend was not running when you opened the page, the count stays at zero. Ensure the FastAPI server is running on port 8766, then hard-refresh the page (Ctrl/Cmd + Shift + R).</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">I clicked the Venues tab but the table is empty.</div>
+          <div class="faq-a">This usually means the backend is not reachable at the configured API URL. Check the Settings tab to confirm the URL is correct and that the FastAPI server is running. You can verify with <code>curl http://localhost:8766/candidates?limit=1</code> in a terminal.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">City pins in country view are all indigo, even though the city has candidates.</div>
+          <div class="faq-a">The amber / indigo pin colour is controlled by a <code>hasVenues</code> flag in the <code>CITY_DATABASE</code> JavaScript object inside <code>globe.html</code>. If a city was added to the database after the code was last updated, its flag will not yet be set. Open <code>globe.html</code>, find the <code>CITY_DATABASE</code> entry for that country, and add <code>hasVenues: true</code> to the relevant city entry.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">What is the difference between Approved and Published?</div>
+          <div class="faq-a"><strong>Approved for Inclusion</strong> means the candidate has been vetted and cleared internally but is not yet live to the public. <strong>Published</strong> means the venue is live in the consumer-facing guide. This two-step gate lets you approve a batch and then publish them together in a controlled release.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">How do I move a venue from Stub all the way to Published?</div>
+          <div class="faq-a">The typical path is: <strong>Stub → Source Backed</strong> (confirm the venue exists in a quality source) → <strong>Human Observed</strong> (log a first-hand observation if possible) → <strong>Approved for Inclusion</strong> (click the Approve button in the review panel) → <strong>Published</strong> (set publish_status to published via the edit form or directly in the DB). You can skip steps that aren't applicable — for example, going straight from Stub to Approved if the venue is well-documented.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">How do I add a new country to the globe?</div>
+          <div class="faq-a">Three things need to happen: (1) Add cities to <code>CITY_DATABASE</code> in <code>globe.html</code> with their lat/lng. (2) Add a satellite entry to the <code>CITIES</code> array (pick a representative city name, orbital <code>inc</code>, <code>phase</code>, <code>spd</code>, and <code>rf</code>). (3) Import venue candidates with the correct <code>country</code> field — they will appear as spires automatically once geocoded.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">Can I run CityScout without the backend server?</div>
+          <div class="faq-a">The globe, satellite animation, and country/city navigation all work offline. However, candidate dots on the city map, the Venues tab, venue editing, photo uploads, and live satellite counts all require the FastAPI backend. Start it with <code>uvicorn main:app --port 8766</code> from the <code>backend/</code> directory.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">Where are uploaded photos stored?</div>
+          <div class="faq-a">Photos are saved to <code>CityScout/photos/{candidate-id}/{uuid}.ext</code> on the local machine. They are served statically at <code>http://localhost:8080/photos/…</code> by the static file server. Paths are stored in the <code>photos</code> column of the <code>candidate</code> table as a JSON array of strings.</div>
+        </div>
+
+      </div><!-- /faq -->
+
+    </div><!-- /manual-content -->
+  </div><!-- /manual-layout -->
 </div>
 
 <div id="loading">
@@ -3018,6 +3289,34 @@ function switchTab(tab) {
 
   if (tab === 'venues')   loadVenuesTab();
   if (tab === 'settings') loadSettingsTab();
+  if (tab === 'manual')   initManualScrollSpy();
+}
+
+// ── Manual sidebar scroll helpers ────────────────────────────────────────────
+function msScroll(link, sectionId) {
+  const el = document.getElementById(sectionId);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelectorAll('#manual-sidebar a').forEach(a => a.classList.remove('ms-active'));
+  link.classList.add('ms-active');
+}
+
+let _msSpyBound = false;
+function initManualScrollSpy() {
+  const content = document.getElementById('manual-content');
+  if (!content || _msSpyBound) return;
+  _msSpyBound = true;
+  content.addEventListener('scroll', () => {
+    const sections = content.querySelectorAll('.manual-section[id]');
+    let active = null;
+    for (const sec of sections) {
+      if (sec.offsetTop - content.scrollTop <= 40) active = sec.id;
+    }
+    document.querySelectorAll('#manual-sidebar a').forEach(a => {
+      const href = a.getAttribute('href')?.replace('#', '');
+      a.classList.toggle('ms-active', href === active);
+    });
+  });
 }
 
 // ── Venues table ────────────────────────────────────────────────────────────
